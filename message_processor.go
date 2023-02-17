@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -57,41 +58,56 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
 
 	parsedMessage := strings.SplitAfterN(m.Text, " ", 4)
-	if len(parsedMessage) != 4 || parsedMessage[0] != "PAY" {
-		fmt.Printf("Incorrect format or length %d, skipping...\n", len(parsedMessage))
-		return nil
+	switch command := strings.TrimSpace(parsedMessage[0]); command {
+	case "PAY":
+		if len(parsedMessage) != 4 {
+			fmt.Printf("Wrong PAY format\n")
+			return nil
+		}
+		mp.createPayment(m.SenderId, strings.TrimSpace(parsedMessage[1]), strings.TrimSpace(parsedMessage[2]), parsedMessage[3])
+	case "ADD_ACCOUNT":
+		if len(parsedMessage) != 2 {
+			fmt.Printf("Wrong ADD_ACCOUNT format\n")
+			return nil
+		}
+		mp.accounts[m.SenderId] = strings.TrimSpace(parsedMessage[1])
+	default:
+		fmt.Printf("Not a command\n")
 	}
 
-	accountNumber := mp.accounts[m.SenderId]
+	return nil
+}
+
+func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message string) error {
+	accountNumber := mp.accounts[senderId]
 	if accountNumber == "" {
 		fmt.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
-		return nil
+		return errors.New("Unknown sender")
 	}
 
-	amount, err := strconv.Atoi(parsedMessage[1])
+	amount, err := strconv.Atoi(amoutStr)
 	if err != nil {
 		fmt.Printf("Cant parse amount %v\n", err)
-		return nil
+		return err
 	}
 
-	split, err := strconv.Atoi(parsedMessage[2])
+	split, err := strconv.Atoi(splitStr)
 	if err != nil {
 		fmt.Printf("Cant parse split %v\n", err)
-		return nil
+		return err
 	}
 
-	image, err := mp.paymentGenerator.Generate(parsedMessage[3], accountNumber, amount, split)
+	image, err := mp.paymentGenerator.Generate(message, accountNumber, amount, split)
 	if err != nil {
 		fmt.Printf("Error generating QR %v\n", err)
-		return nil
+		return err
 	}
 	imageURL, err := mp.imageService.Upload(image)
 	if err != nil {
 		fmt.Printf("Error during image upload %v\n", err)
-		return nil
+		return err
 	}
 	mp.messageService.SendMessage("Hello from BOT!", imageURL)
-
 	return nil
 }
