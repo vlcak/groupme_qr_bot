@@ -21,15 +21,17 @@ type GroupmeMessage struct {
 	UserId      string        `json:"user_id"`
 }
 
-func NewMessageProcessor(messageSender *MessageSender) *MessageProcessor {
+func NewMessageProcessor(messageSender *MessageSender, selfID string) *MessageProcessor {
 	m := &MessageProcessor{
 		messageSender: messageSender,
+		selfID:        selfID,
 	}
 	return m
 }
 
 type MessageProcessor struct {
 	messageSender *MessageSender
+	selfID        string
 }
 
 func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
@@ -38,7 +40,11 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		fmt.Printf("ERROR: %v\n", err)
 		return err
 	}
-	fmt.Printf("Message text: %s\n", m.Text)
+	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
+	// Ignore own messages
+	if m.SenderId == mp.selfID {
+		return nil
+	}
 	mp.messageSender.SendMessage("Hello from BOT!", "")
 
 	return nil

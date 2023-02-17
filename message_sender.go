@@ -16,9 +16,9 @@ type Message struct {
 	Text  string `json:"text"`
 }
 
-func NewMessageSender(botId string) *MessageSender {
+func NewMessageSender(botToken string) *MessageSender {
 	sender := &MessageSender{
-		botId: botId,
+		botId: botToken,
 	}
 	return sender
 }
@@ -42,7 +42,7 @@ func (ms *MessageSender) SendMessage(text, image string) error {
 		return err
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusCreated {
+	if response.StatusCode != http.StatusAccepted {
 		fmt.Printf("Unexpected return code: %d\n", response.StatusCode)
 	}
 	return nil

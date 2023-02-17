@@ -9,14 +9,17 @@ import (
 )
 
 var (
-	flagBotID = flag.String("bot-id", "", "Bot ID")
+	flagBotToken = flag.String("bot-token", "", "Bot TOKEN")
+	flagBotID    = flag.String("bot-id", "", "Bot ID")
+	flagPort     = flag.String("port", ":80", "Service address (e.g. :80)")
 )
 
 func main() {
 	flag.Parse()
-	messageSender := NewMessageSender(*flagBotID)
-	handler := NewHandler(messageSender)
-	err := http.ListenAndServe(":8090", handler.Mux())
+	messageSender := NewMessageSender(*flagBotToken)
+	handler := NewHandler(messageSender, *flagBotID)
+	fmt.Printf("Starting server...\n")
+	err := http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("server closed\n")
 	} else if err != nil {
