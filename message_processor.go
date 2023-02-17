@@ -1,12 +1,16 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type GroupmeMessage struct {
@@ -24,14 +28,32 @@ type GroupmeMessage struct {
 	UserId      string        `json:"user_id"`
 }
 
-func NewMessageProcessor(imageService *ImageService, messageService *MessageService, selfID string) *MessageProcessor {
-	accounts := map[string]string{}
+type UserAccount struct {
+	UserID  sql.NullInt64  `db:"user_id" json:"user_id"`
+	Account sql.NullString `db:"account" json:"account"`
+}
+
+func NewMessageProcessor(imageService *ImageService, messageService *MessageService, selfID, dbURL string) *MessageProcessor {
+	dataSource, err := pq.ParseURL(dbURL)
+	if err != nil {
+		panic(err)
+	}
+
+	db, err := sqlx.Open("postgres", dataSource)
+	if err != nil {
+		panic(err)
+	}
+
+	if db.Ping() != nil {
+		panic(err)
+	}
+
 	m := &MessageProcessor{
 		imageService:     imageService,
 		messageService:   messageService,
 		paymentGenerator: NewQRPaymentGenerator(),
 		selfID:           selfID,
-		accounts:         accounts,
+		db:               db,
 	}
 	return m
 }
@@ -41,7 +63,7 @@ type MessageProcessor struct {
 	messageService   *MessageService
 	paymentGenerator *QRPaymentGenerator
 	selfID           string
-	accounts         map[string]string
+	db               *sqlx.DB
 }
 
 func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
@@ -70,7 +92,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			fmt.Printf("Wrong ADD_ACCOUNT format\n")
 			return nil
 		}
-		mp.accounts[m.SenderId] = strings.TrimSpace(parsedMessage[1])
+		mp.setAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
 	default:
 		fmt.Printf("Not a command\n")
 	}
@@ -79,8 +101,8 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 }
 
 func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message string) error {
-	accountNumber := mp.accounts[senderId]
-	if accountNumber == "" {
+	accountNumber, err := mp.getAccount(senderId)
+	if err != nil || accountNumber == "" {
 		fmt.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
 		return errors.New("Unknown sender")
@@ -108,6 +130,24 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 		fmt.Printf("Error during image upload %v\n", err)
 		return err
 	}
-	mp.messageService.SendMessage("Hello from BOT!", imageURL)
+	mp.messageService.SendMessage("Here is the payment QR:", imageURL)
 	return nil
+}
+
+func (mp *MessageProcessor) getAccount(userID string) (string, error) {
+	userAccounts := []UserAccount{}
+	if err := mp.db.Select(&userAccounts, `SELECT user_id, account FROM user_accounts WHERE user_id = $1`, userID); err != nil {
+		fmt.Printf("DB query error %v\n", err)
+		return "", nil
+	}
+	if len(userAccounts) != 1 {
+		fmt.Printf("No user account found")
+		return "", nil
+	}
+	return userAccounts[0].Account.String, nil
+}
+
+func (mp *MessageProcessor) setAccount(userID, account string) error {
+	row := mp.db.QueryRow(`INSERT INTO user_accounts (user_id, account) VALUES ($1, $2)`, userID, account)
+	return row.Scan()
 }
