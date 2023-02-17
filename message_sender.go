@@ -26,7 +26,7 @@ func NewMessageSender(botToken string) *MessageSender {
 	sender := &MessageSender{
 		botId: botToken,
 	}
-	return senders
+	return sender
 }
 
 type MessageSender struct {
