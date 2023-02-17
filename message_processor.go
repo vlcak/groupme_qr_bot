@@ -58,13 +58,13 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 
 	parsedMessage := strings.SplitAfterN(m.Text, " ", 4)
 	if len(parsedMessage) != 4 || parsedMessage[0] != "PAY" {
-		fmt.Printf("Incorrect format, skipping...")
+		fmt.Printf("Incorrect format or length %d, skipping...\n", len(parsedMessage))
 		return nil
 	}
 
 	accountNumber := mp.accounts[m.SenderId]
 	if accountNumber == "" {
-		fmt.Printf("Unknown sender")
+		fmt.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
 		return nil
 	}
