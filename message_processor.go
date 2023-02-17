@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 )
 
 type GroupmeMessage struct {
@@ -22,11 +24,13 @@ type GroupmeMessage struct {
 }
 
 func NewMessageProcessor(imageService *ImageService, messageService *MessageService, selfID string) *MessageProcessor {
+	accounts := map[string]string{}
 	m := &MessageProcessor{
 		imageService:     imageService,
 		messageService:   messageService,
 		paymentGenerator: NewQRPaymentGenerator(),
 		selfID:           selfID,
+		accounts:         accounts,
 	}
 	return m
 }
@@ -36,6 +40,7 @@ type MessageProcessor struct {
 	messageService   *MessageService
 	paymentGenerator *QRPaymentGenerator
 	selfID           string
+	accounts         map[string]string
 }
 
 func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
@@ -51,7 +56,32 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	}
 	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
 
-	image, err := mp.paymentGenerator.Generate(2500, 12)
+	parsedMessage := strings.SplitAfterN(m.Text, " ", 4)
+	if len(parsedMessage) != 4 || parsedMessage[0] != "PAY" {
+		fmt.Printf("Incorrect format, skipping...")
+		return nil
+	}
+
+	accountNumber := mp.accounts[m.SenderId]
+	if accountNumber == "" {
+		fmt.Printf("Unknown sender")
+		mp.messageService.SendMessage("I don't know your account", "")
+		return nil
+	}
+
+	amount, err := strconv.Atoi(parsedMessage[1])
+	if err != nil {
+		fmt.Printf("Cant parse amount %v\n", err)
+		return nil
+	}
+
+	split, err := strconv.Atoi(parsedMessage[2])
+	if err != nil {
+		fmt.Printf("Cant parse split %v\n", err)
+		return nil
+	}
+
+	image, err := mp.paymentGenerator.Generate(parsedMessage[3], accountNumber, amount, split)
 	if err != nil {
 		fmt.Printf("Error generating QR %v\n", err)
 		return nil
