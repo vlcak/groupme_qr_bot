@@ -22,18 +22,18 @@ type Message struct {
 	Attachments []ImageAttachment `json:"attachments"`
 }
 
-func NewMessageSender(botToken string) *MessageSender {
-	sender := &MessageSender{
+func NewMessageService(botToken string) *MessageService {
+	sender := &MessageService{
 		botId: botToken,
 	}
 	return sender
 }
 
-type MessageSender struct {
+type MessageService struct {
 	botId string
 }
 
-func (ms *MessageSender) SendMessage(text, imageURL string) error {
+func (ms *MessageService) SendMessage(text, imageURL string) error {
 	var attachments []ImageAttachment
 	if imageURL != "" {
 		attachments = append(attachments, ImageAttachment{

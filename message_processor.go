@@ -21,17 +21,21 @@ type GroupmeMessage struct {
 	UserId      string        `json:"user_id"`
 }
 
-func NewMessageProcessor(messageSender *MessageSender, selfID string) *MessageProcessor {
+func NewMessageProcessor(imageService *ImageService, messageService *MessageService, selfID string) *MessageProcessor {
 	m := &MessageProcessor{
-		messageSender: messageSender,
-		selfID:        selfID,
+		imageService:     imageService,
+		messageService:   messageService,
+		paymentGenerator: NewQRPaymentGenerator(),
+		selfID:           selfID,
 	}
 	return m
 }
 
 type MessageProcessor struct {
-	messageSender *MessageSender
-	selfID        string
+	imageService     *ImageService
+	messageService   *MessageService
+	paymentGenerator *QRPaymentGenerator
+	selfID           string
 }
 
 func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
@@ -46,7 +50,18 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		return nil
 	}
 	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
-	mp.messageSender.SendMessage("Hello from BOT!", "")
+
+	image, err := mp.paymentGenerator.Generate(2500, 12)
+	if err != nil {
+		fmt.Printf("Error generating QR %v\n", err)
+		return nil
+	}
+	imageURL, err := mp.imageService.Upload(image)
+	if err != nil {
+		fmt.Printf("Error during image upload %v\n", err)
+		return nil
+	}
+	mp.messageService.SendMessage("Hello from BOT!", imageURL)
 
 	return nil
 }
