@@ -37,6 +37,7 @@ func (is *ImageService) Upload(image []byte) (string, error) {
 		return "", err
 	}
 	r.Header.Add("Content-Type", "image/png")
+	r.Header.Add("X-Access-Token", is.userToken)
 	client := &http.Client{}
 	response, err := client.Do(r)
 	if err != nil {
