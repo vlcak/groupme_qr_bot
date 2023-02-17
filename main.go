@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 	imageService := NewImageService(*flagUserToken)
 	messageService := NewMessageService(*flagBotToken)
-	handler := NewHandler(messageService, *flagBotID)
+	handler := NewHandler(imageService, messageService, *flagBotID)
 	fmt.Printf("Starting server...\n")
 	err := http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {

@@ -15,7 +15,7 @@ type Handler struct {
 // Options may be supplied or set later with Option()
 func NewHandler(imageService *ImageService, messageService *MessageService, botID string) *Handler {
 	h := &Handler{}
-	h.messageProcessor = NewMessageProcessor(messageService, botID)
+	h.messageProcessor = NewMessageProcessor(imageService, messageService, botID)
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc("/", h.getRoot)
 	h.handler.HandleFunc("/message", h.messageReceived)
