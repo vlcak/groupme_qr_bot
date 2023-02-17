@@ -11,9 +11,15 @@ const (
 	BotURL = "https://api.groupme.com/v3/bots/post"
 )
 
+type ImageAttachement struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
 type Message struct {
-	BotId string `json:"bot_id"`
-	Text  string `json:"text"`
+	BotId       string             `json:"bot_id"`
+	Text        string             `json:"text"`
+	Attachments []ImageAttachement `json:"attachements"`
 }
 
 func NewMessageSender(botToken string) *MessageSender {
@@ -27,10 +33,18 @@ type MessageSender struct {
 	botId string
 }
 
-func (ms *MessageSender) SendMessage(text, image string) error {
+func (ms *MessageSender) SendMessage(text, imageURL string) error {
+	var attachements []ImageAttachement
+	if imageURL != "" {
+		attachements = append(attachements, ImageAttachement{
+			Type: "image",
+			URL:  imageURL,
+		})
+	}
 	message := &Message{
-		BotId: ms.botId,
-		Text:  text,
+		BotId:       ms.botId,
+		Text:        text,
+		Attachments: attachements,
 	}
 
 	body, err := json.Marshal(message)

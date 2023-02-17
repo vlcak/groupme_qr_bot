@@ -40,11 +40,12 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		fmt.Printf("ERROR: %v\n", err)
 		return err
 	}
-	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
 	// Ignore own messages
 	if m.SenderId == mp.selfID {
+		fmt.Printf("Ignoring own message\n")
 		return nil
 	}
+	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
 	mp.messageSender.SendMessage("Hello from BOT!", "")
 
 	return nil
