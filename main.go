@@ -2,14 +2,21 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
 )
 
+var (
+	flagBotID = flag.String("bot-id", "", "Bot ID")
+)
+
 func main() {
-	handler := NewHandler()
-	err := http.ListenAndServe(":80", handler.Mux())
+	flag.Parse()
+	messageSender := NewMessageSender(*flagBotID)
+	handler := NewHandler(messageSender)
+	err := http.ListenAndServe(":8090", handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("server closed\n")
 	} else if err != nil {
