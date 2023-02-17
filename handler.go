@@ -13,9 +13,9 @@ type Handler struct {
 
 // NewHandler creates a named service handler e.g. "conversations"
 // Options may be supplied or set later with Option()
-func NewHandler(messageSender *MessageSender) *Handler {
+func NewHandler(messageSender *MessageSender, botID string) *Handler {
 	h := &Handler{}
-	h.messageProcessor = NewMessageProcessor(messageSender)
+	h.messageProcessor = NewMessageProcessor(messageSender, botID)
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc("/", h.getRoot)
 	h.handler.HandleFunc("/message", h.messageReceived)
