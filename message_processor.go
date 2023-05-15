@@ -244,7 +244,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 			log.Printf("Can't parse %s to int %v\n", remStr, err)
 			continue
 		}
-		if rem > 0 {
+		if rem >= 0 {
 			sufficient = append(sufficient, originalSheetNames[i])
 		} else {
 			insufficient = append(insufficient, originalSheetNames[i])
