@@ -59,7 +59,8 @@ func NewMessageProcessor(
 		panic(err)
 	}
 
-	if db.Ping() != nil {
+	if err := db.Ping(); err != nil {
+		log.Falatf("DB Ping error: %v\n", err)
 		panic(err)
 	}
 
