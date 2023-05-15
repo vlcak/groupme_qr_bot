@@ -179,7 +179,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 		log.Printf("Error during image upload %v\n", err)
 		return err
 	}
-	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %d, msg: %s:", amountSplitted, message), imageURL)
+	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %s, msg: %s:", amountSplitted, message), imageURL)
 
 	originalSheetNames, err := mp.sheetOperator.Get("Sheet1!D1:1", true)
 	if err != nil {
@@ -283,7 +283,7 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 		log.Printf("Error during image upload %v\n", err)
 		return err
 	}
-	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %d, msg: %s:", amountSplitted, message), imageURL)
+	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %s, msg: %s:", amountSplitted, message), imageURL)
 	return nil
 }
 
