@@ -7,6 +7,7 @@ import (
 	graphql "github.com/hasura/go-graphql-client"
 	"golang.org/x/exp/slices"
 	"golang.org/x/oauth2"
+	"log"
 	"os"
 	"sort"
 	"time"
@@ -102,7 +103,7 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 	now := time.Now()
 	for pageItems > 0 {
 		if err := tc.client.Query(context.Background(), &query, variables); err != nil {
-			print(err)
+			log.Fatalf("Unable to query events: %v", err)
 			return nil, err
 		}
 		pageItems = len(query.Events.Results)
@@ -114,7 +115,7 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 			}
 			parsedTime, err := time.Parse(time.RFC3339, e.StartTime)
 			if err != nil {
-				fmt.Println(err)
+				log.Fatalf("Unable to parse time: %v", err)
 				continue
 			}
 			difference := now.Sub(parsedTime)
@@ -146,7 +147,6 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].StartTime.Unix() > events[j].StartTime.Unix()
 	})
-	print(events[0])
 	return events, nil
 }
 
@@ -212,7 +212,7 @@ func (tc *TymujClient) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups [
 	}
 
 	if err := tc.client.Query(context.Background(), &query, variables); err != nil {
-		print(err)
+		log.Fatalf("Unable to query atendees: %v", err)
 		return nil, err
 	}
 	var atendees []TymujAtendee
@@ -241,7 +241,6 @@ func (tc *TymujClient) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups [
 			})
 		}
 	}
-	print(atendees)
 	return atendees, nil
 }
 

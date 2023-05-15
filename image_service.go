@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -33,7 +33,7 @@ func (is *ImageService) Upload(image []byte) (string, error) {
 	body := bytes.NewBuffer(image)
 	r, err := http.NewRequest("POST", ImageURL, body)
 	if err != nil {
-		fmt.Printf("Can't create request %v\n", err)
+		log.Printf("Can't create request %v\n", err)
 		return "", err
 	}
 	r.Header.Add("Content-Type", "image/png")
@@ -41,18 +41,18 @@ func (is *ImageService) Upload(image []byte) (string, error) {
 	client := &http.Client{}
 	response, err := client.Do(r)
 	if err != nil {
-		fmt.Printf("Upload image error %v\n", err)
+		log.Printf("Upload image error %v\n", err)
 		return "", err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		fmt.Printf("Image upload returned unexpected code: %d\n", response.StatusCode)
+		log.Printf("Image upload returned unexpected code: %d\n", response.StatusCode)
 		return "", err
 	}
 
 	imageResponse := ImageResponse{}
 	if err := json.NewDecoder(response.Body).Decode(&imageResponse); err != nil {
-		fmt.Printf("ERROR: %v\n", err)
+		log.Fatalf("ERROR: %v\n", err)
 		return "", err
 	}
 

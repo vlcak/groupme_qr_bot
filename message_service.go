@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -52,12 +52,12 @@ func (ms *MessageService) SendMessage(text, imageURL string) error {
 	client := &http.Client{}
 	response, err := client.Post(BotURL, "application/json", bytes.NewReader(body))
 	if err != nil {
-		fmt.Printf("Error sending the message: %v\n", err)
+		log.Printf("Error sending the message: %v\n", err)
 		return err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusAccepted {
-		fmt.Printf("Unexpected return code: %d\n", response.StatusCode)
+		log.Printf("Unexpected return code: %d\n", response.StatusCode)
 	}
 	return nil
 }

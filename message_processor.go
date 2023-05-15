@@ -6,11 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 
+	"github.com/adrg/strutil"
+	"github.com/adrg/strutil/metrics"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"golang.org/x/exp/slices"
+)
+
+const (
+	GOALIES_GROUP_ID = 2662
 )
 
 type GroupmeMessage struct {
@@ -33,7 +41,14 @@ type UserAccount struct {
 	Account sql.NullString `db:"account" json:"account"`
 }
 
-func NewMessageProcessor(imageService *ImageService, messageService *MessageService, selfID, dbURL string) *MessageProcessor {
+func NewMessageProcessor(
+	imageService *ImageService,
+	messageService *MessageService,
+	tymujClient *TymujClient,
+	sheetOperator *GoogleSheetOperator,
+	selfID,
+	dbURL string,
+) *MessageProcessor {
 	dataSource, err := pq.ParseURL(dbURL)
 	if err != nil {
 		panic(err)
@@ -51,6 +66,8 @@ func NewMessageProcessor(imageService *ImageService, messageService *MessageServ
 	m := &MessageProcessor{
 		imageService:     imageService,
 		messageService:   messageService,
+		tymujClient:      tymujClient,
+		sheetOperator:    sheetOperator,
 		paymentGenerator: NewQRPaymentGenerator(),
 		selfID:           selfID,
 		db:               db,
@@ -62,6 +79,8 @@ type MessageProcessor struct {
 	imageService     *ImageService
 	messageService   *MessageService
 	paymentGenerator *QRPaymentGenerator
+	sheetOperator    *GoogleSheetOperator
+	tymujClient      *TymujClient
 	selfID           string
 	db               *sqlx.DB
 }
@@ -69,79 +88,210 @@ type MessageProcessor struct {
 func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	m := GroupmeMessage{}
 	if err := json.NewDecoder(body).Decode(&m); err != nil {
-		fmt.Printf("ERROR: %v\n", err)
+		log.Printf("ERROR: %v\n", err)
 		return err
 	}
 	// Ignore own messages
 	if m.SenderId == mp.selfID {
-		fmt.Printf("Ignoring own message\n")
+		log.Printf("Ignoring own message\n")
 		return nil
 	}
-	fmt.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
+	log.Printf("Message text: %s ID %s \n", m.Text, m.SenderId)
 
 	parsedMessage := strings.SplitAfterN(m.Text, " ", 4)
 	switch command := strings.TrimSpace(parsedMessage[0]); command {
-	case "PAY":
+	case "QR":
 		if len(parsedMessage) != 4 {
-			fmt.Printf("Wrong PAY format\n")
+			log.Printf("Wrong QR format\n")
 			return nil
 		}
 		mp.createPayment(m.SenderId, strings.TrimSpace(parsedMessage[1]), strings.TrimSpace(parsedMessage[2]), parsedMessage[3])
+	case "PAY":
+		if len(parsedMessage) != 2 {
+			log.Printf("Wrong PAY format\n")
+			return nil
+		}
+		mp.createPayment(m.SenderId, strings.TrimSpace(parsedMessage[1]), strings.TrimSpace(parsedMessage[2]), parsedMessage[3])
+
 	case "ADD_ACCOUNT":
 		if len(parsedMessage) != 2 {
-			fmt.Printf("Wrong ADD_ACCOUNT format\n")
+			log.Printf("Wrong ADD_ACCOUNT format\n")
 			return nil
 		}
 		mp.setAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
 	default:
-		fmt.Printf("Not a command\n")
+		log.Printf("Not a command\n")
 	}
 
 	return nil
 }
 
-func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message string) error {
+func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
+	events, err := mp.tymujClient.GetEvents(true, true)
+	if err != nil {
+		log.Fatalf("Unable to get events: %v\n", err)
+		return err
+	}
+	lastEvent := events[0]
+	log.Printf("Last event: %v", lastEvent)
+
+	tymujAtendees, err := mp.tymujClient.GetAtendees(lastEvent.Id, true, []int{GOALIES_GROUP_ID})
+	if err != nil {
+		log.Fatalf("Unable to get atendees: %v\n", err)
+		return err
+	}
+	var atendees []string
+	for _, a := range tymujAtendees {
+		atendees = append(atendees, Normalize(a.Name))
+	}
+
 	accountNumber, err := mp.getAccount(senderId)
 	if err != nil || accountNumber == "" {
-		fmt.Printf("Unknown sender\n")
+		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
 		return errors.New("Unknown sender")
 	}
 
 	amount, err := strconv.Atoi(amoutStr)
 	if err != nil {
-		fmt.Printf("Cant parse amount %v\n", err)
+		log.Printf("Cant parse amount %v\n", err)
+		return err
+	}
+
+	eventName := "hokej"
+	if lastEvent.IsGame {
+		eventName = "zapas"
+	}
+	message := fmt.Sprintf("%s %s", eventName, lastEvent.StartTime.Format("02.01."))
+	split := len(atendees)
+	amountSplitted := strconv.Itoa((amount + split - 1) / split)
+
+	image, err := mp.paymentGenerator.Generate(message, accountNumber, amountSplitted)
+	if err != nil {
+		log.Printf("Error generating QR %v\n", err)
+		return err
+	}
+	imageURL, err := mp.imageService.Upload(image)
+	if err != nil {
+		log.Printf("Error during image upload %v\n", err)
+		return err
+	}
+	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %d, msg: %s:", amountSplitted, message), imageURL)
+
+	originalSheetNames, err := mp.sheetOperator.Get("Sheet1!D1:1", true)
+	if err != nil {
+		log.Printf("Can't get sheet names %v\n", err)
+		return err
+	}
+	// remove hosts & normalize
+	sheetNames := originalSheetNames[:len(originalSheetNames)-1]
+	NormalizeArray(sheetNames)
+
+	row := []interface{}{message, amount, amountSplitted}
+	var processed []string
+	lev := metrics.NewLevenshtein()
+	for _, name := range sheetNames {
+		pos := slices.IndexFunc(atendees, func(aName string) bool {
+			return strutil.Similarity(aName, name, lev) > 0.75
+		})
+		if pos != -1 {
+			log.Printf("ASSIGNED: %s:%s, val: %f\n", name, atendees[pos], strutil.Similarity(atendees[pos], name, lev))
+			processed = append(processed, atendees[pos])
+			atendees = append(atendees[:pos], atendees[pos+1:]...)
+			row = append(row, "1")
+		} else {
+			row = append(row, "")
+		}
+	}
+	// the rest are hosts
+	if len(atendees) > 0 {
+		row = append(row, len(atendees))
+		row = append(row, strings.Join(atendees, ","))
+	}
+	err = mp.sheetOperator.AppendLine("Sheet1", row)
+	if err != nil {
+		log.Printf("Can't insert row %v\n", err)
+		return err
+	}
+	mp.messageService.SendMessage(
+		fmt.Sprintf(
+			"Processed atendees %s, hosts: %s:",
+			strings.Join(processed, ","),
+			strings.Join(atendees, ",")),
+		"")
+
+	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", true)
+	if err != nil {
+		log.Printf("Can't get sheet remainings %v\n", err)
+		return err
+	}
+	var sufficient, insufficient []string
+	for i, remStr := range remainings {
+		rem, err := strconv.Atoi(remStr)
+		if err != nil {
+			log.Printf("Can't parse %s to int %v\n", remStr, err)
+			continue
+		}
+		if rem > 0 {
+			sufficient = append(sufficient, originalSheetNames[i])
+		} else {
+			insufficient = append(insufficient, originalSheetNames[i])
+		}
+	}
+
+	mp.messageService.SendMessage(
+		fmt.Sprintf(
+			"Balance OK: %s, BAD: %s:",
+			strings.Join(sufficient, ","),
+			strings.Join(insufficient, ",")),
+		"")
+	return nil
+}
+
+func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message string) error {
+	accountNumber, err := mp.getAccount(senderId)
+	if err != nil || accountNumber == "" {
+		log.Printf("Unknown sender\n")
+		mp.messageService.SendMessage("I don't know your account", "")
+		return errors.New("Unknown sender")
+	}
+
+	amount, err := strconv.Atoi(amoutStr)
+	if err != nil {
+		log.Printf("Cant parse amount %v\n", err)
 		return err
 	}
 
 	split, err := strconv.Atoi(splitStr)
 	if err != nil {
-		fmt.Printf("Cant parse split %v\n", err)
+		log.Printf("Cant parse split %v\n", err)
 		return err
 	}
 
-	image, err := mp.paymentGenerator.Generate(message, accountNumber, amount, split)
+	amountSplitted := strconv.Itoa((amount + split - 1) / split)
+
+	image, err := mp.paymentGenerator.Generate(message, accountNumber, amountSplitted)
 	if err != nil {
-		fmt.Printf("Error generating QR %v\n", err)
+		log.Printf("Error generating QR %v\n", err)
 		return err
 	}
 	imageURL, err := mp.imageService.Upload(image)
 	if err != nil {
-		fmt.Printf("Error during image upload %v\n", err)
+		log.Printf("Error during image upload %v\n", err)
 		return err
 	}
-	mp.messageService.SendMessage("Here is the payment QR:", imageURL)
+	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %d, msg: %s:", amountSplitted, message), imageURL)
 	return nil
 }
 
 func (mp *MessageProcessor) getAccount(userID string) (string, error) {
 	userAccounts := []UserAccount{}
 	if err := mp.db.Select(&userAccounts, `SELECT user_id, account FROM user_accounts WHERE user_id = $1`, userID); err != nil {
-		fmt.Printf("DB query error %v\n", err)
+		log.Printf("DB query error %v\n", err)
 		return "", nil
 	}
 	if len(userAccounts) != 1 {
-		fmt.Printf("No user account found")
+		log.Printf("No user account found")
 		return "", nil
 	}
 	return userAccounts[0].Account.String, nil
