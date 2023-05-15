@@ -108,7 +108,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			log.Printf("Wrong QR format\n")
 			return nil
 		}
-		err = mp.createPayment(m.SenderId, strings.TrimSpace(parsedMessage[1]), strings.TrimSpace(parsedMessage[2]), parsedMessage[3])
+		err := mp.createPayment(m.SenderId, strings.TrimSpace(parsedMessage[1]), strings.TrimSpace(parsedMessage[2]), parsedMessage[3])
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing QR: %v", err), "")
 		}
@@ -117,7 +117,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			log.Printf("Wrong PAY format\n")
 			return nil
 		}
-		err = mp.processEvent(m.SenderId, strings.TrimSpace(parsedMessage[1]))
+		err := mp.processEvent(m.SenderId, strings.TrimSpace(parsedMessage[1]))
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing PAY: %v", err), "")
 		}
@@ -126,7 +126,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			log.Printf("Wrong ADD_ACCOUNT format\n")
 			return nil
 		}
-		err = mp.setAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
+		err := mp.setAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing ADD_ACCOUNT: %v", err), "")
 		}
