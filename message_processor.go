@@ -174,7 +174,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	if lastEvent.IsGame {
 		eventName = "zapas"
 	}
-	message := fmt.Sprintf("%s %s", eventName, lastEvent.StartTime.Format("02.01."))
+	message := fmt.Sprintf("%s %s", eventName, lastEvent.StartTime.Format("2.1."))
 	split := len(atendees)
 	amountSplitted := strconv.Itoa((amount + split - 1) / split)
 
@@ -227,8 +227,8 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	}
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
-			"Processed atendees %s, hosts: %s:",
-			strings.Join(processed, ","),
+			"Processed %d atendees, hosts: %s:",
+			len(processed),
 			strings.Join(atendees, ",")),
 		"")
 
@@ -253,8 +253,8 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
-			"Balance OK: %s, BAD: %s:",
-			strings.Join(sufficient, ","),
+			"Balance OK: %d, BAD: %s:",
+			len(sufficient),
 			strings.Join(insufficient, ",")),
 		"")
 	return nil
