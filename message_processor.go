@@ -51,16 +51,18 @@ func NewMessageProcessor(
 ) *MessageProcessor {
 	dataSource, err := pq.ParseURL(dbURL)
 	if err != nil {
+		log.Fatalf("DB URI parse error: %v\n", err)
 		panic(err)
 	}
 
 	db, err := sqlx.Open("postgres", dataSource)
 	if err != nil {
+		log.Fatalf("DB Open error: %v\n", err)
 		panic(err)
 	}
 
 	if err := db.Ping(); err != nil {
-		log.Falatf("DB Ping error: %v\n", err)
+		log.Fatalf("DB Ping error: %v\n", err)
 		panic(err)
 	}
 
