@@ -124,6 +124,22 @@ func (gso *GoogleSheetOperator) Get(getRange string, removeEmpty bool) ([]string
 	return values, nil
 }
 
+func (gso *GoogleSheetOperator) Write(writeRange string, newValues []interface{}) error {
+	valueInputOption := "USER_ENTERED"
+	insertDataOption := "INSERT_ROWS"
+	values := [][]interface{}{newValues}
+
+	rb := &sheets.ValueRange{
+		Values: values,
+	}
+	response, err := gso.service.Spreadsheets.Values.Update(gso.spreadsheetId, writeRange, rb).ValueInputOption(valueInputOption).Do()
+	if err != nil || response.HTTPStatusCode != 200 {
+		log.Fatalf("Unable to write cell: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (gso *GoogleSheetOperator) AppendLine(sheetName string, newValues []interface{}) error {
 	valueInputOption := "USER_ENTERED"
 	insertDataOption := "INSERT_ROWS"
