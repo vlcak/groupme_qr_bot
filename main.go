@@ -37,7 +37,7 @@ func main() {
 
 	cronWorker := NewCronWorker(bankChecker, sheetOperator, messageService)
 	c := cron.New()
-	c.AddFunc("*/15 * * * * *", func() { cronWorker.CheckNewPayments() })
+	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
 	c.Start()
 
 	handler := NewHandler(imageService, messageService, tymujClient, sheetOperator, *flagBotID, *flagDbURL)
