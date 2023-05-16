@@ -190,7 +190,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	}
 	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %s, msg: %s:", amountSplitted, message), imageURL)
 
-	originalSheetNames, err := mp.sheetOperator.Get("Sheet1!D1:1", true)
+	originalSheetNames, err := mp.sheetOperator.Get("Sheet1!D1:1", "", true)
 	if err != nil {
 		log.Printf("Can't get sheet names %v\n", err)
 		return err
@@ -232,7 +232,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 			strings.Join(atendees, ",")),
 		"")
 
-	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", true)
+	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", "", true)
 	if err != nil {
 		log.Printf("Can't get sheet remainings %v\n", err)
 		return err

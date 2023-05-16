@@ -45,6 +45,71 @@ type GoogleSheetOperator struct {
 	service       *sheets.Service
 }
 
+func ToColumnIndex(index int) string {
+	if index < 26 {
+		return string('A' + index)
+	}
+	return fmt.Sprintf("%s%s", string('A'+(index/26)-1), string('A'+(index%26)))
+}
+
+func (gso *GoogleSheetOperator) Get(getRange, valueRenderOption string, removeEmpty bool) ([]string, error) {
+	if valueRenderOption == "" {
+		valueRenderOption = "UNFORMATTED_VALUE"
+	}
+	resp, err := gso.service.Spreadsheets.Values.Get(gso.spreadsheetId, getRange).ValueRenderOption(valueRenderOption).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve data from sheet: %v", err)
+		return nil, err
+	}
+
+	var values []string
+	if len(resp.Values) == 0 {
+		log.Printf("No data found.")
+		return values, nil
+	}
+	for _, row := range resp.Values {
+		for _, cell := range row {
+			val := fmt.Sprintf("%v", cell)
+			if !removeEmpty || val != "" {
+				values = append(values, val)
+			}
+		}
+	}
+
+	return values, nil
+}
+
+func (gso *GoogleSheetOperator) Write(writeRange string, newValues []interface{}) error {
+	valueInputOption := "USER_ENTERED"
+	values := [][]interface{}{newValues}
+
+	rb := &sheets.ValueRange{
+		Values: values,
+	}
+	response, err := gso.service.Spreadsheets.Values.Update(gso.spreadsheetId, writeRange, rb).ValueInputOption(valueInputOption).Do()
+	if err != nil || response.HTTPStatusCode != 200 {
+		log.Fatalf("Unable to write cell: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (gso *GoogleSheetOperator) AppendLine(sheetName string, newValues []interface{}) error {
+	valueInputOption := "USER_ENTERED"
+	insertDataOption := "INSERT_ROWS"
+	values := [][]interface{}{newValues}
+
+	rb := &sheets.ValueRange{
+		Values: values,
+	}
+	response, err := gso.service.Spreadsheets.Values.Append(gso.spreadsheetId, sheetName, rb).ValueInputOption(valueInputOption).InsertDataOption(insertDataOption).Do()
+	if err != nil || response.HTTPStatusCode != 200 {
+		log.Fatalf("Unable to insert new row: %v", err)
+		return err
+	}
+	return nil
+}
+
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
@@ -98,60 +163,4 @@ func saveToken(path string, token *oauth2.Token) {
 	}
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
-}
-
-func (gso *GoogleSheetOperator) Get(getRange string, removeEmpty bool) ([]string, error) {
-	resp, err := gso.service.Spreadsheets.Values.Get(gso.spreadsheetId, getRange).Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve data from sheet: %v", err)
-		return nil, err
-	}
-
-	var values []string
-	if len(resp.Values) == 0 {
-		log.Printf("No data found.")
-		return values, nil
-	}
-	for _, row := range resp.Values {
-		for _, cell := range row {
-			val := fmt.Sprintf("%v", cell)
-			if !removeEmpty || val != "" {
-				values = append(values, val)
-			}
-		}
-	}
-
-	return values, nil
-}
-
-func (gso *GoogleSheetOperator) Write(writeRange string, newValues []interface{}) error {
-	valueInputOption := "USER_ENTERED"
-	insertDataOption := "INSERT_ROWS"
-	values := [][]interface{}{newValues}
-
-	rb := &sheets.ValueRange{
-		Values: values,
-	}
-	response, err := gso.service.Spreadsheets.Values.Update(gso.spreadsheetId, writeRange, rb).ValueInputOption(valueInputOption).Do()
-	if err != nil || response.HTTPStatusCode != 200 {
-		log.Fatalf("Unable to write cell: %v", err)
-		return err
-	}
-	return nil
-}
-
-func (gso *GoogleSheetOperator) AppendLine(sheetName string, newValues []interface{}) error {
-	valueInputOption := "USER_ENTERED"
-	insertDataOption := "INSERT_ROWS"
-	values := [][]interface{}{newValues}
-
-	rb := &sheets.ValueRange{
-		Values: values,
-	}
-	response, err := gso.service.Spreadsheets.Values.Append(gso.spreadsheetId, sheetName, rb).ValueInputOption(valueInputOption).InsertDataOption(insertDataOption).Do()
-	if err != nil || response.HTTPStatusCode != 200 {
-		log.Fatalf("Unable to insert new row: %v", err)
-		return err
-	}
-	return nil
 }

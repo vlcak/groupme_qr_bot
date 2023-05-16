@@ -45,7 +45,6 @@ func (bc *BankChecker) CheckPayments() ([]Payment, error) {
 		log.Fatalf("Can't get payments: %v", err)
 		return nil, err
 	}
-	print(payments)
 	// Store lastAccountingOrder
 	err = saveLastAccountingOrder(bc.filePath, newLastAccountingOrder)
 	if err != nil {
@@ -55,8 +54,6 @@ func (bc *BankChecker) CheckPayments() ([]Payment, error) {
 
 	return payments, nil
 }
-
-
 
 type account struct {
 	AccountNumberM24 int `json:"accountNumberM24"`
@@ -184,6 +181,7 @@ func (bc *BankChecker) paymentsSinceLastCheck(lastAccountingOrder int) ([]Paymen
 	}
 	// print(bankResponse)
 	var payments []Payment
+	hitLast := false
 	for _, transaction := range bankResponse.AccountedTransaction {
 		if transaction.BaseInfo.AccountingOrder > lastAccountingOrder && transaction.BaseInfo.AccountAmountData.Amount > 0 {
 			payments = append(payments, Payment{
@@ -196,6 +194,13 @@ func (bc *BankChecker) paymentsSinceLastCheck(lastAccountingOrder int) ([]Paymen
 				Amount: transaction.BaseInfo.AccountAmountData.Amount,
 			})
 		}
+		if transaction.BaseInfo.AccountingOrder <= lastAccountingOrder {
+			hitLast = true
+			break
+		}
+	}
+	if !hitLast {
+		log.Printf("Not all payments checked!")
 	}
 
 	return payments, bankResponse.AccountedTransaction[0].BaseInfo.AccountingOrder, nil
@@ -222,7 +227,6 @@ func readLastAccountingOrder(file string) (int, error) {
 
 // Saves lastAccountingOrder to a file path.
 func saveLastAccountingOrder(path string, lastAccountOrderNumber int) error {
-	fmt.Printf("Saving lastAccountingOrder file to: %s\n", path)
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Fatalf("Unable to open lastAccountingOrder for writing: %v", err)

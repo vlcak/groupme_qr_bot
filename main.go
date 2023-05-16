@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/robfig/cron"
 	"net/http"
 	"os"
 )
@@ -18,6 +19,8 @@ var (
 	flagTymujToken    = flag.String("tymuj-token", "", "Tymuj TOKEN")
 	flagTymujTeamID   = flag.Int("tymuj-team-id", 33489, "Tymuj team ID")
 	flagGoogleSheetID = flag.String("google-sheet-id", "", "Google sheet ID")
+	flagAccountNumber = flag.Int("account-number", 311396620, "Account number")
+	flagCsobURL       = flag.String("csob-url", "https://www.csob.cz/et-npw-lta-view/api/detail/transactionList", "CSOB transaction list URI")
 )
 
 func main() {
@@ -30,6 +33,12 @@ func main() {
 	if err != nil {
 		fmt.Printf("Can't initialize Google sheet client: %v\n", err)
 	}
+	bankChecker := NewBankChecker(*flagAccountNumber, *flagCsobURL)
+
+	cronWorker := NewCronWorker(bankChecker, sheetOperator, messageService)
+	c := cron.New()
+	c.AddFunc("/15 * * * * *", func() { cronWorker.CheckNewPayments() })
+
 	handler := NewHandler(imageService, messageService, tymujClient, sheetOperator, *flagBotID, *flagDbURL)
 	fmt.Printf("Starting server...\n")
 	err = http.ListenAndServe(*flagPort, handler.Mux())
