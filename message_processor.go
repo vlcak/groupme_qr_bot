@@ -176,9 +176,9 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	}
 	message := fmt.Sprintf("%s %s", eventName, lastEvent.StartTime.Format("2.1."))
 	split := len(atendees)
-	amountSplitted := strconv.Itoa((amount + split - 1) / split)
+	amountSplitted := (amount + split - 1) / split
 
-	image, err := mp.paymentGenerator.Generate(message, accountNumber, amountSplitted)
+	image, err := mp.paymentGenerator.Generate(message, accountNumber, strconv.Itoa(amountSplitted))
 	if err != nil {
 		log.Printf("Error generating QR %v\n", err)
 		return err
@@ -188,7 +188,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 		log.Printf("Error during image upload %v\n", err)
 		return err
 	}
-	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %s, msg: %s:", amountSplitted, message), imageURL)
+	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %d, msg: %s:", amountSplitted, message), imageURL)
 
 	originalSheetNames, err := mp.sheetOperator.Get("Sheet1!D1:1", "", true)
 	if err != nil {
@@ -222,7 +222,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 				log.Printf("Can't parse %s to int %v\n", remainings[i], err)
 				continue
 			}
-			if rem >= 0 {
+			if rem >= amountSplitted {
 				sufficient = append(sufficient, originalSheetNames[i])
 			} else {
 				insufficient = append(insufficient, originalSheetNames[i])
@@ -245,7 +245,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
-			"Processed %d atendees, hosts: %s\nBalance OK: %d, BAD: %s:",
+			"Processed %d atendees, hosts: %s\nBalance OK: %d, BAD: %d:",
 			len(processed),
 			strings.Join(atendees, ","),
 			len(sufficient),
