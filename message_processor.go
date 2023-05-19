@@ -198,11 +198,17 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	// remove hosts & normalize
 	sheetNames := originalSheetNames[:len(originalSheetNames)-1]
 	NormalizeArray(sheetNames)
+	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", "", true)
+	if err != nil {
+		log.Printf("Can't get sheet remainings %v\n", err)
+		return err
+	}
+	var sufficient, insufficient []string
 
 	row := []interface{}{message, amount, amountSplitted}
 	var processed []string
 	lev := metrics.NewLevenshtein()
-	for _, name := range sheetNames {
+	for i, name := range sheetNames {
 		pos := slices.IndexFunc(atendees, func(aName string) bool {
 			return strutil.Similarity(aName, name, lev) > 0.75
 		})
@@ -211,6 +217,16 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 			processed = append(processed, atendees[pos])
 			atendees = append(atendees[:pos], atendees[pos+1:]...)
 			row = append(row, "1")
+			rem, err := strconv.Atoi(remainings[i])
+			if err != nil {
+				log.Printf("Can't parse %s to int %v\n", remainings[i], err)
+				continue
+			}
+			if rem >= 0 {
+				sufficient = append(sufficient, originalSheetNames[i])
+			} else {
+				insufficient = append(insufficient, originalSheetNames[i])
+			}
 		} else {
 			row = append(row, "")
 		}
@@ -219,42 +235,25 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	if len(atendees) > 0 {
 		row = append(row, len(atendees))
 		row = append(row, strings.Join(atendees, ","))
+		insufficient = append(insufficient, atendees...)
 	}
 	err = mp.sheetOperator.AppendLine("Sheet1", row)
 	if err != nil {
 		log.Printf("Can't insert row %v\n", err)
 		return err
 	}
+
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
-			"Processed %d atendees, hosts: %s:",
+			"Processed %d atendees, hosts: %s\nBalance OK: %d, BAD: %s:",
 			len(processed),
-			strings.Join(atendees, ",")),
+			strings.Join(atendees, ","),
+			len(sufficient),
+			len(insufficient)),
 		"")
-
-	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", "", true)
-	if err != nil {
-		log.Printf("Can't get sheet remainings %v\n", err)
-		return err
-	}
-	var sufficient, insufficient []string
-	for i, remStr := range remainings {
-		rem, err := strconv.Atoi(remStr)
-		if err != nil {
-			log.Printf("Can't parse %s to int %v\n", remStr, err)
-			continue
-		}
-		if rem >= 0 {
-			sufficient = append(sufficient, originalSheetNames[i])
-		} else {
-			insufficient = append(insufficient, originalSheetNames[i])
-		}
-	}
-
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
-			"Balance OK: %d, BAD: %s:",
-			len(sufficient),
+			"Platba pro: %s",
 			strings.Join(insufficient, ",")),
 		"")
 	return nil
