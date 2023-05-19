@@ -34,7 +34,7 @@ func (cw *CronWorker) CheckNewPayments() {
 	for _, payment := range payments {
 		found := false
 		for i, account := range accountNumbers {
-			if account == payment.AccountNumber {
+			if account == payment.AccountNumber || (account == "hosts" && !found) {
 				cellAddress := fmt.Sprintf("Sheet1!%s2", ToColumnIndex(i))
 				v, err := cw.sheetOperator.Get(cellAddress, "FORMULA", false)
 				if err != nil {
@@ -47,13 +47,13 @@ func (cw *CronWorker) CheckNewPayments() {
 					log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
 				}
 				log.Printf("Added %d to %s, account %s", payment.Amount, payment.Name, payment.AccountNumber)
-				found = true
+				found = (account != "hosts")
 				cw.messageService.SendMessage(fmt.Sprintf("New payment from: %s, account: %s, amount: %d", payment.Name, payment.AccountNumber, payment.Amount), "")
 			}
 		}
 		if !found {
-			log.Printf("Payment not matched %v", payment)
-			cw.messageService.SendMessage(fmt.Sprintf("Payment not matched! from: %s, account: %s, amount: %d", payment.Name, payment.AccountNumber, payment.Amount), "")
+			log.Printf("Payment not matched and added to hosts %v", payment)
+			cw.messageService.SendMessage(fmt.Sprintf("Payment not matched, adding to hosts! from: %s, account: %s, amount: %d", payment.Name, payment.AccountNumber, payment.Amount), "")
 		}
 	}
 }
