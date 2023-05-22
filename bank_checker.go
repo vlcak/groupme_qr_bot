@@ -31,6 +31,7 @@ type BankChecker struct {
 type Payment struct {
 	Name          string
 	AccountNumber string
+	Message       string
 	Amount        int
 }
 
@@ -191,7 +192,8 @@ func (bc *BankChecker) paymentsSinceLastCheck(lastAccountingOrder int) ([]Paymen
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.AccountNumber,
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.BankCode,
 				),
-				Amount: transaction.BaseInfo.AccountAmountData.Amount,
+				Message: transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
+				Amount:  transaction.BaseInfo.AccountAmountData.Amount,
 			})
 		}
 		if transaction.BaseInfo.AccountingOrder <= lastAccountingOrder {

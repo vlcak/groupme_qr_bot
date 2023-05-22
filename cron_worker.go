@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"regexp"
 )
 
 func NewCronWorker(bankChecker *BankChecker, sheetOperator *GoogleSheetOperator, messageService *MessageService) *CronWorker {
@@ -33,6 +34,13 @@ func (cw *CronWorker) CheckNewPayments() {
 	}
 	for _, payment := range payments {
 		found := false
+		resent, err := regexp.MatchString(`^TO \d{9,10}/\d{4,4}`, payment.Message)
+		if err != nil {
+			log.Printf("Can't check payment message: %s, err: %v", payment.Message, err)
+		}
+		if resent {
+			payment.AccountNumber = payment.Message[3:]
+		}
 		for i, account := range accountNumbers {
 			if account == payment.AccountNumber || (account == "hosts" && !found) {
 				cellAddress := fmt.Sprintf("Sheet1!%s2", ToColumnIndex(i))
@@ -46,14 +54,14 @@ func (cw *CronWorker) CheckNewPayments() {
 				if err != nil {
 					log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
 				}
-				log.Printf("Added %d to %s, account %s", payment.Amount, payment.Name, payment.AccountNumber)
+				log.Printf("Added %d to %s, account %s, resent: %t", payment.Amount, payment.Name, payment.AccountNumber, resent)
 				found = (account != "hosts")
-				cw.messageService.SendMessage(fmt.Sprintf("New payment from: %s, account: %s, amount: %d", payment.Name, payment.AccountNumber, payment.Amount), "")
+				cw.messageService.SendMessage(fmt.Sprintf("New payment from: %s, account: %s, amount: %d, resent: %t", payment.Name, payment.AccountNumber, payment.Amount, resent), "")
 			}
 		}
 		if !found {
 			log.Printf("Payment not matched and added to hosts %v", payment)
-			cw.messageService.SendMessage(fmt.Sprintf("Payment not matched, adding to hosts! from: %s, account: %s, amount: %d", payment.Name, payment.AccountNumber, payment.Amount), "")
+			cw.messageService.SendMessage(fmt.Sprintf("Payment not matched, adding to hosts! from: %s, account: %s, amount: %d, resent: %t", payment.Name, payment.AccountNumber, payment.Amount, resent), "")
 		}
 	}
 }
