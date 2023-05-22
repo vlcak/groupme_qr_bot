@@ -29,7 +29,7 @@ func main() {
 	messageService := NewMessageService(*flagBotToken)
 	tymujClient := NewTymujClient(*flagTymujToken, *flagTymujTeamID)
 	ctx := context.Background()
-	sheetOperator, err := NewGoogleSheetOperator(ctx, *flagGoogleSheetID, "credentials.json")
+	sheetOperator, err := NewGoogleSheetOperator(ctx, *flagGoogleSheetID, "sa_credentials.json")
 	if err != nil {
 		fmt.Printf("Can't initialize Google sheet client: %v\n", err)
 	}
