@@ -5,26 +5,33 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/robfig/cron"
 	"net/http"
 	"os"
 )
 
 var (
-	flagBotToken      = flag.String("bot-token", "", "Bot TOKEN")
-	flagBotID         = flag.String("bot-id", "", "Bot ID")
-	flagPort          = flag.String("port", ":80", "Service address (e.g. :80)")
-	flagUserToken     = flag.String("user-token", "", "User token for images")
-	flagDbURL         = flag.String("db", "", "Database URL")
-	flagTymujToken    = flag.String("tymuj-token", "", "Tymuj TOKEN")
-	flagTymujTeamID   = flag.Int("tymuj-team-id", 33489, "Tymuj team ID")
-	flagGoogleSheetID = flag.String("google-sheet-id", "", "Google sheet ID")
-	flagAccountNumber = flag.Int("account-number", 311396620, "Account number")
-	flagCsobURL       = flag.String("csob-url", "https://www.csob.cz/et-npw-lta-view/api/detail/transactionList", "CSOB transaction list URI")
+	flagBotToken        = flag.String("bot-token", "", "Bot TOKEN")
+	flagBotID           = flag.String("bot-id", "", "Bot ID")
+	flagPort            = flag.String("port", ":80", "Service address (e.g. :80)")
+	flagUserToken       = flag.String("user-token", "", "User token for images")
+	flagDbURL           = flag.String("db", "", "Database URL")
+	flagTymujToken      = flag.String("tymuj-token", "", "Tymuj TOKEN")
+	flagTymujTeamID     = flag.Int("tymuj-team-id", 33489, "Tymuj team ID")
+	flagGoogleSheetID   = flag.String("google-sheet-id", "", "Google sheet ID")
+	flagAccountNumber   = flag.Int("account-number", 311396620, "Account number")
+	flagCsobURL         = flag.String("csob-url", "https://www.csob.cz/et-npw-lta-view/api/detail/transactionList", "CSOB transaction list URI")
+	flagNewRelicLicense = flag.String("newrelic-license", "", "NewRelic license")
 )
 
 func main() {
 	flag.Parse()
+	newRelicApp, err := newrelic.NewApplication(
+		newrelic.ConfigAppName("BTymQRbot"),
+		newrelic.ConfigLicense(*flagNewRelicLicense),
+		newrelic.ConfigAppLogForwardingEnabled(true),
+	)
 	imageService := NewImageService(*flagUserToken)
 	messageService := NewMessageService(*flagBotToken)
 	tymujClient := NewTymujClient(*flagTymujToken, *flagTymujTeamID)
@@ -40,7 +47,7 @@ func main() {
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
 	c.Start()
 
-	handler := NewHandler(imageService, messageService, tymujClient, sheetOperator, *flagBotID, *flagDbURL)
+	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, *flagBotID, *flagDbURL)
 	fmt.Printf("Starting server...\n")
 	err = http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {

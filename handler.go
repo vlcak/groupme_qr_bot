@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ type Handler struct {
 // NewHandler creates a named service handler e.g. "conversations"
 // Options may be supplied or set later with Option()
 func NewHandler(
+	newRelicApp *newrelic.Application,
 	imageService *ImageService,
 	messageService *MessageService,
 	tymujClient *TymujClient,
@@ -24,8 +26,8 @@ func NewHandler(
 	h := &Handler{}
 	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, botID, dbURL)
 	h.handler = http.NewServeMux()
-	h.handler.HandleFunc("/", h.getRoot)
-	h.handler.HandleFunc("/message", h.messageReceived)
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/message", h.messageReceived))
 	return h
 }
 
