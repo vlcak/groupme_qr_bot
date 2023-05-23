@@ -32,6 +32,11 @@ func (cw *CronWorker) CheckNewPayments() {
 		log.Printf("Can't get Account numbers: %v", err)
 		return
 	}
+	userNames, err := cw.sheetOperator.Get("Sheet1!A1:1", "", false)
+	if err != nil {
+		log.Printf("Can't get user names: %v", err)
+		return
+	}
 	for _, payment := range payments {
 		found := false
 		resent, err := regexp.MatchString(`^TO \d{9,10}/\d{4,4}`, payment.Message)
@@ -54,9 +59,10 @@ func (cw *CronWorker) CheckNewPayments() {
 				if err != nil {
 					log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
 				}
-				log.Printf("Added %d to %s, account %s, resent: %t", payment.Amount, payment.Name, payment.AccountNumber, resent)
+				log.Printf("Added %d to %s(%s), account %s, resent: %t", payment.Amount, payment.Name, userNames[i], payment.AccountNumber, resent)
 				found = (account != "hosts")
-				cw.messageService.SendMessage(fmt.Sprintf("New payment from: %s, account: %s, amount: %d, resent: %t", payment.Name, payment.AccountNumber, payment.Amount, resent), "")
+				cw.messageService.SendMessage(fmt.Sprintf("New payment from: %s(%s), account: %s, amount: %d, resent: %t", payment.Name, userNames[i], payment.AccountNumber, payment.Amount, resent), "")
+				break
 			}
 		}
 		if !found {
