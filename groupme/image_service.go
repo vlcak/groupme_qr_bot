@@ -52,7 +52,7 @@ func (is *ImageService) Upload(image []byte) (string, error) {
 
 	imageResponse := ImageResponse{}
 	if err := json.NewDecoder(response.Body).Decode(&imageResponse); err != nil {
-		log.Fatalf("ERROR: %v\n", err)
+		log.Printf("ERROR: %v\n", err)
 		return "", err
 	}
 

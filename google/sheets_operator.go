@@ -19,7 +19,7 @@ const (
 func NewSheetOperator(ctx context.Context, spreadsheetId, credentialsFilePath string) (*SheetOperator, error) {
 	srv, err := sheets.NewService(ctx, option.WithCredentialsFile(credentialsFilePath))
 	if err != nil {
-		log.Fatalf("Unable to retrieve Sheets client: %v", err)
+		log.Printf("Unable to retrieve Sheets client: %v", err)
 		return nil, err
 	}
 	return &SheetOperator{
@@ -46,7 +46,7 @@ func (so *SheetOperator) Get(getRange, valueRenderOption string, removeEmpty boo
 	}
 	resp, err := so.service.Spreadsheets.Values.Get(so.spreadsheetId, getRange).ValueRenderOption(valueRenderOption).Do()
 	if err != nil {
-		log.Fatalf("Unable to retrieve data from sheet: %v", err)
+		log.Printf("Unable to retrieve data from sheet: %v", err)
 		return nil, err
 	}
 
@@ -76,7 +76,7 @@ func (so *SheetOperator) Write(writeRange string, newValues []interface{}) error
 	}
 	response, err := so.service.Spreadsheets.Values.Update(so.spreadsheetId, writeRange, rb).ValueInputOption(valueInputOption).Do()
 	if err != nil || response.HTTPStatusCode != 200 {
-		log.Fatalf("Unable to write cell: %v", err)
+		log.Printf("Unable to write cell: %v", err)
 		return err
 	}
 	return nil
@@ -92,7 +92,7 @@ func (so *SheetOperator) AppendLine(sheetName string, newValues []interface{}) e
 	}
 	response, err := so.service.Spreadsheets.Values.Append(so.spreadsheetId, sheetName, rb).ValueInputOption(valueInputOption).InsertDataOption(insertDataOption).Do()
 	if err != nil || response.HTTPStatusCode != 200 {
-		log.Fatalf("Unable to insert new row: %v", err)
+		log.Printf("Unable to insert new row: %v", err)
 		return err
 	}
 	return nil

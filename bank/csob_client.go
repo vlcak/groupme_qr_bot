@@ -42,13 +42,13 @@ func (cc *CsobClient) CheckPayments() ([]Payment, error) {
 	}
 	payments, newLastAccountingOrder, err := cc.paymentsSinceLastCheck(previousLastAccountingOrder)
 	if err != nil {
-		log.Fatalf("Can't get payments: %v", err)
+		log.Printf("Can't get payments: %v", err)
 		return nil, err
 	}
 	// Store lastAccountingOrder
 	err = saveLastAccountingOrder(cc.filePath, newLastAccountingOrder)
 	if err != nil {
-		log.Fatalf("Can't store last accounting order: %v", err)
+		log.Printf("Can't store last accounting order: %v", err)
 		return nil, err
 	}
 
@@ -140,7 +140,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		log.Fatalf("Can't marshal bank account request payload: %v", err)
+		log.Printf("Can't marshal bank account request payload: %v", err)
 		return nil, 0, err
 	}
 
@@ -156,14 +156,14 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	client := &http.Client{}
 	response, err := client.Do(r)
 	if err != nil {
-		log.Fatalf("Error sending bank request: %v\n", err)
+		log.Printf("Error sending bank request: %v\n", err)
 		return nil, 0, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		log.Printf("Unexpected bank request return code: %d\n", response.StatusCode)
 		log.Printf("Response: %v", response)
-		return nil, 0, err
+		return nil, 0, errors.New("unexpected bank request return code")
 	}
 
 	body, err = ioutil.ReadAll(response.Body)
@@ -219,7 +219,7 @@ func readLastAccountingOrder(file string) (int, error) {
 	r := bufio.NewReader(f)
 	line, _, err := r.ReadLine()
 	if err != nil {
-		log.Fatalf("Unable to read lastAccountingOrder: %v", err)
+		log.Printf("Unable to read lastAccountingOrder: %v", err)
 		return 0, err
 	}
 
@@ -230,12 +230,12 @@ func readLastAccountingOrder(file string) (int, error) {
 func saveLastAccountingOrder(path string, lastAccountOrderNumber int) error {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Fatalf("Unable to open lastAccountingOrder for writing: %v", err)
+		log.Printf("Unable to open lastAccountingOrder for writing: %v", err)
 		return err
 	}
 	defer f.Close()
 	if _, err = f.WriteString(strconv.Itoa(lastAccountOrderNumber)); err != nil {
-		log.Fatalf("Unable to write lastAccountingOrder: %v", err)
+		log.Printf("Unable to write lastAccountingOrder: %v", err)
 		return err
 	}
 	return nil

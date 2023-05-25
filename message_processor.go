@@ -122,7 +122,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	events, err := mp.tymujClient.GetEvents(true, true)
 	if err != nil {
-		log.Fatalf("Unable to get events: %v\n", err)
+		log.Printf("Unable to get events: %v\n", err)
 		return err
 	}
 	lastEvent := events[0]
@@ -130,7 +130,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 
 	tymujAtendees, err := mp.tymujClient.GetAtendees(lastEvent.Id, true, []int{GOALIES_GROUP_ID})
 	if err != nil {
-		log.Fatalf("Unable to get atendees: %v\n", err)
+		log.Printf("Unable to get atendees: %v\n", err)
 		return err
 	}
 	var atendees []string

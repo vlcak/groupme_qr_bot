@@ -103,7 +103,7 @@ func (c *Client) GetEvents(noGoalies, pastOnly bool) ([]Event, error) {
 	now := time.Now()
 	for pageItems > 0 {
 		if err := c.client.Query(context.Background(), &query, variables); err != nil {
-			log.Fatalf("Unable to query events: %v", err)
+			log.Printf("Unable to query events: %v", err)
 			return nil, err
 		}
 		pageItems = len(query.Events.Results)
@@ -115,7 +115,7 @@ func (c *Client) GetEvents(noGoalies, pastOnly bool) ([]Event, error) {
 			}
 			parsedTime, err := time.Parse(time.RFC3339, e.StartTime)
 			if err != nil {
-				log.Fatalf("Unable to parse time: %v", err)
+				log.Printf("Unable to parse time: %v", err)
 				continue
 			}
 			difference := now.Sub(parsedTime)
@@ -212,7 +212,7 @@ func (c *Client) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups []int) 
 	}
 
 	if err := c.client.Query(context.Background(), &query, variables); err != nil {
-		log.Fatalf("Unable to query atendees: %v", err)
+		log.Printf("Unable to query atendees: %v", err)
 		return nil, err
 	}
 	var atendees []Atendee
