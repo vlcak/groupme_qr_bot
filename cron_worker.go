@@ -2,27 +2,30 @@ package main
 
 import (
 	"fmt"
+	"github.com/vlcak/groupme_qr_bot/bank"
+	"github.com/vlcak/groupme_qr_bot/google"
+	"github.com/vlcak/groupme_qr_bot/groupme"
 	"log"
 	"regexp"
 )
 
-func NewCronWorker(bankChecker *BankChecker, sheetOperator *GoogleSheetOperator, messageService *MessageService) *CronWorker {
+func NewCronWorker(csobClient *bank.CsobClient, sheetOperator *google.SheetOperator, messageService *groupme.MessageService) *CronWorker {
 	return &CronWorker{
-		bankChecker:    bankChecker,
+		csobClient:     csobClient,
 		sheetOperator:  sheetOperator,
 		messageService: messageService,
 	}
 }
 
 type CronWorker struct {
-	bankChecker    *BankChecker
-	sheetOperator  *GoogleSheetOperator
-	messageService *MessageService
+	csobClient     *bank.CsobClient
+	sheetOperator  *google.SheetOperator
+	messageService *groupme.MessageService
 }
 
 func (cw *CronWorker) CheckNewPayments() {
 	log.Printf("Checking new payments")
-	payments, err := cw.bankChecker.CheckPayments()
+	payments, err := cw.csobClient.CheckPayments()
 	if err != nil {
 		log.Printf("Can't get payments: %v", err)
 		return
@@ -48,8 +51,8 @@ func (cw *CronWorker) CheckNewPayments() {
 		}
 		for i, account := range accountNumbers {
 			if account == payment.AccountNumber || (account == "hosts" && !found) {
-				cellAddress := fmt.Sprintf("Sheet1!%s2", ToColumnIndex(i))
-				v, err := cw.sheetOperator.Get(cellAddress, "FORMULA", false)
+				cellAddress := fmt.Sprintf("Sheet1!%s2", google.ToColumnIndex(i))
+				v, err := cw.sheetOperator.Get(cellAddress, google.VRO_FORMULA, false)
 				if err != nil {
 					log.Printf("Can't get amount cell for payment: %v, %v", payment, err)
 				}

@@ -2,6 +2,10 @@ package main
 
 import (
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/vlcak/groupme_qr_bot/db"
+	"github.com/vlcak/groupme_qr_bot/google"
+	"github.com/vlcak/groupme_qr_bot/groupme"
+	"github.com/vlcak/groupme_qr_bot/tymuj"
 	"io"
 	"log"
 	"net/http"
@@ -16,15 +20,15 @@ type Handler struct {
 // Options may be supplied or set later with Option()
 func NewHandler(
 	newRelicApp *newrelic.Application,
-	imageService *ImageService,
-	messageService *MessageService,
-	tymujClient *TymujClient,
-	sheetOperator *GoogleSheetOperator,
-	botID,
-	dbURL string,
+	imageService *groupme.ImageService,
+	messageService *groupme.MessageService,
+	tymujClient *tymuj.Client,
+	sheetOperator *google.SheetOperator,
+	botID string,
+	dbClient *database.Client,
 ) *Handler {
 	h := &Handler{}
-	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, botID, dbURL)
+	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, botID, dbClient)
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/message", h.messageReceived))

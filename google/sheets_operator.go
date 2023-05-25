@@ -1,4 +1,4 @@
-package main
+package google
 
 import (
 	"context"
@@ -9,19 +9,26 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-func NewGoogleSheetOperator(ctx context.Context, spreadsheetId, credentialsFilePath string) (*GoogleSheetOperator, error) {
+const (
+	IDO_INSERT_ROWS       = "INSERT_ROWS"
+	VIO_USER_ENTERED      = "USER_ENTERED"
+	VRO_FORMULA           = "FORMULA"
+	VRO_UNFORMATTED_VALUE = "UNFORMATTED_VALUE"
+)
+
+func NewSheetOperator(ctx context.Context, spreadsheetId, credentialsFilePath string) (*SheetOperator, error) {
 	srv, err := sheets.NewService(ctx, option.WithCredentialsFile(credentialsFilePath))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Sheets client: %v", err)
 		return nil, err
 	}
-	return &GoogleSheetOperator{
+	return &SheetOperator{
 		spreadsheetId: spreadsheetId,
 		service:       srv,
 	}, nil
 }
 
-type GoogleSheetOperator struct {
+type SheetOperator struct {
 	spreadsheetId string
 	service       *sheets.Service
 }
@@ -33,11 +40,11 @@ func ToColumnIndex(index int) string {
 	return fmt.Sprintf("%s%s", string('A'+(index/26)-1), string('A'+(index%26)))
 }
 
-func (gso *GoogleSheetOperator) Get(getRange, valueRenderOption string, removeEmpty bool) ([]string, error) {
+func (so *SheetOperator) Get(getRange, valueRenderOption string, removeEmpty bool) ([]string, error) {
 	if valueRenderOption == "" {
-		valueRenderOption = "UNFORMATTED_VALUE"
+		valueRenderOption = VRO_UNFORMATTED_VALUE
 	}
-	resp, err := gso.service.Spreadsheets.Values.Get(gso.spreadsheetId, getRange).ValueRenderOption(valueRenderOption).Do()
+	resp, err := so.service.Spreadsheets.Values.Get(so.spreadsheetId, getRange).ValueRenderOption(valueRenderOption).Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve data from sheet: %v", err)
 		return nil, err
@@ -60,14 +67,14 @@ func (gso *GoogleSheetOperator) Get(getRange, valueRenderOption string, removeEm
 	return values, nil
 }
 
-func (gso *GoogleSheetOperator) Write(writeRange string, newValues []interface{}) error {
-	valueInputOption := "USER_ENTERED"
+func (so *SheetOperator) Write(writeRange string, newValues []interface{}) error {
+	valueInputOption := VIO_USER_ENTERED
 	values := [][]interface{}{newValues}
 
 	rb := &sheets.ValueRange{
 		Values: values,
 	}
-	response, err := gso.service.Spreadsheets.Values.Update(gso.spreadsheetId, writeRange, rb).ValueInputOption(valueInputOption).Do()
+	response, err := so.service.Spreadsheets.Values.Update(so.spreadsheetId, writeRange, rb).ValueInputOption(valueInputOption).Do()
 	if err != nil || response.HTTPStatusCode != 200 {
 		log.Fatalf("Unable to write cell: %v", err)
 		return err
@@ -75,15 +82,15 @@ func (gso *GoogleSheetOperator) Write(writeRange string, newValues []interface{}
 	return nil
 }
 
-func (gso *GoogleSheetOperator) AppendLine(sheetName string, newValues []interface{}) error {
-	valueInputOption := "USER_ENTERED"
-	insertDataOption := "INSERT_ROWS"
+func (so *SheetOperator) AppendLine(sheetName string, newValues []interface{}) error {
+	valueInputOption := VIO_USER_ENTERED
+	insertDataOption := IDO_INSERT_ROWS
 	values := [][]interface{}{newValues}
 
 	rb := &sheets.ValueRange{
 		Values: values,
 	}
-	response, err := gso.service.Spreadsheets.Values.Append(gso.spreadsheetId, sheetName, rb).ValueInputOption(valueInputOption).InsertDataOption(insertDataOption).Do()
+	response, err := so.service.Spreadsheets.Values.Append(so.spreadsheetId, sheetName, rb).ValueInputOption(valueInputOption).InsertDataOption(insertDataOption).Do()
 	if err != nil || response.HTTPStatusCode != 200 {
 		log.Fatalf("Unable to insert new row: %v", err)
 		return err

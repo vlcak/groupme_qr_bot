@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,8 +11,11 @@ import (
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
-	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	"github.com/vlcak/groupme_qr_bot/db"
+	"github.com/vlcak/groupme_qr_bot/google"
+	"github.com/vlcak/groupme_qr_bot/groupme"
+	"github.com/vlcak/groupme_qr_bot/tymuj"
+	"github.com/vlcak/groupme_qr_bot/utils"
 	"golang.org/x/exp/slices"
 )
 
@@ -36,42 +38,21 @@ type GroupmeMessage struct {
 	UserId      string        `json:"user_id"`
 }
 
-type UserAccount struct {
-	UserID  sql.NullInt64  `db:"user_id" json:"user_id"`
-	Account sql.NullString `db:"account" json:"account"`
-}
-
 func NewMessageProcessor(
-	imageService *ImageService,
-	messageService *MessageService,
-	tymujClient *TymujClient,
-	sheetOperator *GoogleSheetOperator,
-	selfID,
-	dbURL string,
+	imageService *groupme.ImageService,
+	messageService *groupme.MessageService,
+	tymujClient *tymuj.Client,
+	sheetOperator *google.SheetOperator,
+	selfID string,
+	db *database.Client,
 ) *MessageProcessor {
-	dataSource, err := pq.ParseURL(dbURL)
-	if err != nil {
-		log.Fatalf("DB URI parse error: %v\n", err)
-		panic(err)
-	}
-
-	db, err := sqlx.Open("postgres", dataSource)
-	if err != nil {
-		log.Fatalf("DB Open error: %v\n", err)
-		panic(err)
-	}
-
-	if err := db.Ping(); err != nil {
-		log.Fatalf("DB Ping error: %v\n", err)
-		panic(err)
-	}
 
 	m := &MessageProcessor{
 		imageService:     imageService,
 		messageService:   messageService,
 		tymujClient:      tymujClient,
 		sheetOperator:    sheetOperator,
-		paymentGenerator: NewQRPaymentGenerator(),
+		paymentGenerator: utils.NewQRPaymentGenerator(),
 		selfID:           selfID,
 		db:               db,
 	}
@@ -79,13 +60,13 @@ func NewMessageProcessor(
 }
 
 type MessageProcessor struct {
-	imageService     *ImageService
-	messageService   *MessageService
-	paymentGenerator *QRPaymentGenerator
-	sheetOperator    *GoogleSheetOperator
-	tymujClient      *TymujClient
+	imageService     *groupme.ImageService
+	messageService   *groupme.MessageService
+	paymentGenerator *utils.QRPaymentGenerator
+	sheetOperator    *google.SheetOperator
+	tymujClient      *tymuj.Client
 	selfID           string
-	db               *sqlx.DB
+	db               *database.Client
 }
 
 func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
@@ -126,7 +107,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			log.Printf("Wrong ADD_ACCOUNT format\n")
 			return nil
 		}
-		err := mp.setAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
+		err := mp.db.SetAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing ADD_ACCOUNT: %v", err), "")
 		}
@@ -154,10 +135,10 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	}
 	var atendees []string
 	for _, a := range tymujAtendees {
-		atendees = append(atendees, Normalize(a.Name))
+		atendees = append(atendees, utils.Normalize(a.Name))
 	}
 
-	accountNumber, err := mp.getAccount(senderId)
+	accountNumber, err := mp.db.GetAccount(senderId)
 	if err != nil || accountNumber == "" {
 		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
@@ -197,7 +178,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	}
 	// remove hosts & normalize
 	sheetNames := originalSheetNames[:len(originalSheetNames)-1]
-	NormalizeArray(sheetNames)
+	utils.NormalizeArray(sheetNames)
 	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", "", true)
 	if err != nil {
 		log.Printf("Can't get sheet remainings %v\n", err)
@@ -260,7 +241,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 }
 
 func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message string) error {
-	accountNumber, err := mp.getAccount(senderId)
+	accountNumber, err := mp.db.GetAccount(senderId)
 	if err != nil || accountNumber == "" {
 		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
@@ -293,22 +274,4 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 	}
 	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %s, msg: %s:", amountSplitted, message), imageURL)
 	return nil
-}
-
-func (mp *MessageProcessor) getAccount(userID string) (string, error) {
-	userAccounts := []UserAccount{}
-	if err := mp.db.Select(&userAccounts, `SELECT user_id, account FROM user_accounts WHERE user_id = $1`, userID); err != nil {
-		log.Printf("DB query error %v\n", err)
-		return "", nil
-	}
-	if len(userAccounts) != 1 {
-		log.Printf("No user account found")
-		return "", nil
-	}
-	return userAccounts[0].Account.String, nil
-}
-
-func (mp *MessageProcessor) setAccount(userID, account string) error {
-	row := mp.db.QueryRow(`INSERT INTO user_accounts (user_id, account) VALUES ($1, $2)`, userID, account)
-	return row.Scan()
 }

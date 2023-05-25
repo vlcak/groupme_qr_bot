@@ -1,11 +1,11 @@
-package main
+package bank
 
 import (
 	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/jmoiron/sqlx"
+	// "github.com/vlcak/groupme_qr_bot/db"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,18 +13,17 @@ import (
 	"strconv"
 )
 
-func NewBankChecker(accountNumber int, bankURL string) *BankChecker {
-	return &BankChecker{
+func NewCsobClient(accountNumber int, bankURL string) *CsobClient {
+	return &CsobClient{
 		accountNumber: accountNumber,
 		url:           bankURL,
 		filePath:      "lastAccountingOrder.txt",
 	}
 }
 
-type BankChecker struct {
+type CsobClient struct {
 	accountNumber int
 	url           string
-	db            *sqlx.DB
 	filePath      string
 }
 
@@ -35,19 +34,19 @@ type Payment struct {
 	Amount        int
 }
 
-func (bc *BankChecker) CheckPayments() ([]Payment, error) {
-	previousLastAccountingOrder, err := readLastAccountingOrder(bc.filePath)
+func (cc *CsobClient) CheckPayments() ([]Payment, error) {
+	previousLastAccountingOrder, err := readLastAccountingOrder(cc.filePath)
 	if err != nil {
 		log.Printf("Can't get last accounting order: %v", err)
 		previousLastAccountingOrder = 400
 	}
-	payments, newLastAccountingOrder, err := bc.paymentsSinceLastCheck(previousLastAccountingOrder)
+	payments, newLastAccountingOrder, err := cc.paymentsSinceLastCheck(previousLastAccountingOrder)
 	if err != nil {
 		log.Fatalf("Can't get payments: %v", err)
 		return nil, err
 	}
 	// Store lastAccountingOrder
-	err = saveLastAccountingOrder(bc.filePath, newLastAccountingOrder)
+	err = saveLastAccountingOrder(cc.filePath, newLastAccountingOrder)
 	if err != nil {
 		log.Fatalf("Can't store last accounting order: %v", err)
 		return nil, err
@@ -118,11 +117,11 @@ type transaction struct {
 	}
 }
 
-func (bc *BankChecker) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, int, error) {
+func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, int, error) {
 	payload := &requestPayments{
 		AccountList: []account{
 			account{
-				AccountNumberM24: bc.accountNumber,
+				AccountNumberM24: cc.accountNumber,
 			},
 		},
 		FilterList: []filter{},
@@ -145,14 +144,14 @@ func (bc *BankChecker) paymentsSinceLastCheck(lastAccountingOrder int) ([]Paymen
 		return nil, 0, err
 	}
 
-	r, err := http.NewRequest("POST", bc.url, bytes.NewReader(body))
+	r, err := http.NewRequest("POST", cc.url, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("Can't create bank request %v\n", err)
 		return nil, 0, err
 	}
 	r.Header.Add("Accept", "application/json, text/plain, */*")
 	r.Header.Add("Content-Type", "application/json")
-	r.Header.Add("Referer", fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d)", bc.accountNumber))
+	r.Header.Add("Referer", fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d)", cc.accountNumber))
 	r.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.35")
 	client := &http.Client{}
 	response, err := client.Do(r)

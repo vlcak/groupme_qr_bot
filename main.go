@@ -7,6 +7,11 @@ import (
 	"fmt"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/robfig/cron"
+	"github.com/vlcak/groupme_qr_bot/bank"
+	"github.com/vlcak/groupme_qr_bot/db"
+	"github.com/vlcak/groupme_qr_bot/google"
+	"github.com/vlcak/groupme_qr_bot/groupme"
+	"github.com/vlcak/groupme_qr_bot/tymuj"
 	"net/http"
 	"os"
 )
@@ -32,22 +37,23 @@ func main() {
 		newrelic.ConfigLicense(*flagNewRelicLicense),
 		newrelic.ConfigAppLogForwardingEnabled(true),
 	)
-	imageService := NewImageService(*flagUserToken)
-	messageService := NewMessageService(*flagBotToken)
-	tymujClient := NewTymujClient(*flagTymujToken, *flagTymujTeamID)
+	imageService := groupme.NewImageService(*flagUserToken)
+	messageService := groupme.NewMessageService(*flagBotToken)
+	tymujClient := tymuj.NewClient(*flagTymujToken, *flagTymujTeamID)
+	dbClient := database.NewClient(*flagDbURL)
 	ctx := context.Background()
-	sheetOperator, err := NewGoogleSheetOperator(ctx, *flagGoogleSheetID, "sa_credentials.json")
+	sheetOperator, err := google.NewSheetOperator(ctx, *flagGoogleSheetID, "sa_credentials.json")
 	if err != nil {
 		fmt.Printf("Can't initialize Google sheet client: %v\n", err)
 	}
-	bankChecker := NewBankChecker(*flagAccountNumber, *flagCsobURL)
+	csobClient := bank.NewCsobClient(*flagAccountNumber, *flagCsobURL)
 
-	cronWorker := NewCronWorker(bankChecker, sheetOperator, messageService)
+	cronWorker := NewCronWorker(csobClient, sheetOperator, messageService)
 	c := cron.New()
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
 	c.Start()
 
-	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, *flagBotID, *flagDbURL)
+	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, *flagBotID, dbClient)
 	fmt.Printf("Starting server...\n")
 	err = http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {

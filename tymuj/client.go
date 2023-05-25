@@ -1,4 +1,4 @@
-package main
+package tymuj
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type TymujAtendee struct {
+type Atendee struct {
 	Id        graphql.ID
 	GroupId   graphql.ID
 	GroupName string
@@ -21,7 +21,7 @@ type TymujAtendee struct {
 	RSVP      string
 }
 
-type TymujEvent struct {
+type Event struct {
 	Id          graphql.ID
 	Name        string
 	IsPast      bool
@@ -39,7 +39,7 @@ type EventListInput struct {
 	dateTo   time.Time
 }
 
-func NewTymujClient(token string, teamId int) *TymujClient {
+func NewClient(token string, teamId int) *Client {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{
 			AccessToken: token,
@@ -47,18 +47,18 @@ func NewTymujClient(token string, teamId int) *TymujClient {
 		},
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
-	return &TymujClient{
+	return &Client{
 		client: graphql.NewClient("https://rust-api.tymuj.cz/graphql", httpClient),
 		teamId: teamId,
 	}
 }
 
-type TymujClient struct {
+type Client struct {
 	client *graphql.Client
 	teamId int
 }
 
-func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error) {
+func (c *Client) GetEvents(noGoalies, pastOnly bool) ([]Event, error) {
 	var query struct {
 		Events struct {
 			Results []struct {
@@ -86,13 +86,13 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 		} `graphql:"events(page: $page, filter: $filter)"`
 	}
 
-	var events []TymujEvent
+	var events []Event
 
 	pageNumber := 0
 	variables := map[string]interface{}{
 		"page": pageNumber,
 		"filter": EventListInput{
-			teamId:   graphql.ToID(tc.teamId),
+			teamId:   graphql.ToID(c.teamId),
 			upcoming: false,
 			past:     true,
 			dateFrom: time.Now().Add(-1 * time.Hour * 24),
@@ -102,7 +102,7 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 	pageItems := 1
 	now := time.Now()
 	for pageItems > 0 {
-		if err := tc.client.Query(context.Background(), &query, variables); err != nil {
+		if err := c.client.Query(context.Background(), &query, variables); err != nil {
 			log.Fatalf("Unable to query events: %v", err)
 			return nil, err
 		}
@@ -132,7 +132,7 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 				}
 			}
 
-			events = append(events, TymujEvent{
+			events = append(events, Event{
 				Id:          e.Id,
 				Name:        name,
 				StartTime:   parsedTime,
@@ -150,7 +150,7 @@ func (tc *TymujClient) GetEvents(noGoalies, pastOnly bool) ([]TymujEvent, error)
 	return events, nil
 }
 
-func (tc *TymujClient) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups []int) ([]TymujAtendee, error) {
+func (c *Client) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups []int) ([]Atendee, error) {
 	exceptGroupsFilter := []graphql.ID{}
 	for _, egi := range exceptGroups {
 		exceptGroupsFilter = append(exceptGroupsFilter, graphql.ToID(egi))
@@ -211,11 +211,11 @@ func (tc *TymujClient) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups [
 		"id": id,
 	}
 
-	if err := tc.client.Query(context.Background(), &query, variables); err != nil {
+	if err := c.client.Query(context.Background(), &query, variables); err != nil {
 		log.Fatalf("Unable to query atendees: %v", err)
 		return nil, err
 	}
-	var atendees []TymujAtendee
+	var atendees []Atendee
 	for _, a := range query.Event.EventPlayers {
 		if goingOnly && a.Answer != "GOING" {
 			continue
@@ -224,7 +224,7 @@ func (tc *TymujClient) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups [
 			continue
 		}
 		if a.TeamMember.User.Id == graphql.ToID(0) {
-			atendees = append(atendees, TymujAtendee{
+			atendees = append(atendees, Atendee{
 				Id:        a.EventPlayerGuest.Id,
 				GroupId:   graphql.ToID(0),
 				GroupName: "Guests",
@@ -232,7 +232,7 @@ func (tc *TymujClient) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups [
 				RSVP:      "GOING",
 			})
 		} else {
-			atendees = append(atendees, TymujAtendee{
+			atendees = append(atendees, Atendee{
 				Id:        a.TeamMember.User.Id,
 				GroupId:   a.TeamMember.TeamSubgroup.Id,
 				GroupName: a.TeamMember.TeamSubgroup.Name,
