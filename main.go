@@ -46,9 +46,9 @@ func main() {
 	if err != nil {
 		fmt.Printf("Can't initialize Google sheet client: %v\n", err)
 	}
-	csobClient := bank.NewCsobClient(*flagAccountNumber, *flagCsobURL)
+	csobClient := bank.NewCsobClient(*flagAccountNumber, *flagCsobURL, dbClient)
 
-	cronWorker := NewCronWorker(csobClient, sheetOperator, messageService)
+	cronWorker := NewCronWorker(csobClient, sheetOperator, messageService, dbClient)
 	c := cron.New()
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
 	c.Start()

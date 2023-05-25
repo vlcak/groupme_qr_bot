@@ -2,9 +2,11 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"log"
+	"time"
 )
 
 func NewClient(dbURL string) *Client {
@@ -33,25 +35,64 @@ type Client struct {
 	db *sqlx.DB
 }
 
-type UserAccount struct {
+type GroupmeAccount struct {
 	UserID  sql.NullInt64  `db:"user_id" json:"user_id"`
 	Account sql.NullString `db:"account" json:"account"`
 }
 
-func (c *Client) GetAccount(userID string) (string, error) {
-	userAccounts := []UserAccount{}
-	if err := c.db.Select(&userAccounts, `SELECT user_id, account FROM user_accounts WHERE user_id = $1`, userID); err != nil {
-		log.Printf("DB query error %v\n", err)
-		return "", nil
-	}
-	if len(userAccounts) != 1 {
-		log.Printf("No user account found")
-		return "", nil
-	}
-	return userAccounts[0].Account.String, nil
+type UserAccount struct {
+	Account sql.NullString `db:"account" json:"account"`
+	Name    sql.NullString `db:"name" json:"name"`
 }
 
-func (c *Client) SetAccount(userID, account string) error {
-	row := c.db.QueryRow(`INSERT INTO user_accounts (user_id, account) VALUES ($1, $2)`, userID, account)
+type Payment struct {
+	Account sql.NullString `db:"account" json:"account"`
+	Name    sql.NullString `db:"name" json:"name"`
+}
+
+func (c *Client) GetGroupmeAccount(userID string) (string, error) {
+	var account string
+	if err := c.db.Get(&account, `SELECT account FROM groupme_accounts WHERE user_id = $1`, userID); err != nil {
+		log.Printf("DB query error %v\n", err)
+		return "", err
+	}
+	if account == "" {
+		log.Printf("No user account found")
+	}
+	return account, nil
+}
+
+func (c *Client) SetGroupmeAccount(userID, account string) error {
+	row := c.db.QueryRow(`INSERT INTO groupme_accounts (user_id, account) VALUES ($1, $2)`, userID, account)
+	return row.Scan()
+}
+
+func (c *Client) GetName(account string) (string, error) {
+	var name string
+	if err := c.db.Get(&name, `SELECT name FROM user_accounts WHERE account = $1`, account); err != nil {
+		log.Printf("DB query error %v\n", err)
+		return "", err
+	}
+	if name == "" {
+		log.Printf("No names found for account %s", account)
+	}
+	return name, nil
+}
+
+func (c *Client) GetLastPaymentOrder() (int, error) {
+	var lastOrder int
+	if err := c.db.Get(&lastOrder, `SELECT accounted_order FROM payments ORDER BY order DESC LIMIT 1`); err != nil {
+		log.Printf("DB query error %v\n", err)
+		return 0, err
+	}
+	if lastOrder == 0 {
+		log.Printf("No payments found")
+		return 0, errors.New("No payments found")
+	}
+	return lastOrder, nil
+}
+
+func (c *Client) StorePayment(name, account string, amount, order int, timestamp time.Time) error {
+	row := c.db.QueryRow(`INSERT INTO payments (name, account, amount, accounted_order, accounted_at) VALUES ($1, $2, $3, $4, $5)`, name, account, amount, order, timestamp)
 	return row.Scan()
 }

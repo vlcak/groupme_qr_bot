@@ -1,30 +1,29 @@
 package bank
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	// "github.com/vlcak/groupme_qr_bot/db"
+	"github.com/vlcak/groupme_qr_bot/db"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
+	"time"
 )
 
-func NewCsobClient(accountNumber int, bankURL string) *CsobClient {
+func NewCsobClient(accountNumber int, bankURL string, db *database.Client) *CsobClient {
 	return &CsobClient{
 		accountNumber: accountNumber,
 		url:           bankURL,
-		filePath:      "lastAccountingOrder.txt",
+		db:            db,
 	}
 }
 
 type CsobClient struct {
 	accountNumber int
 	url           string
-	filePath      string
+	db            *database.Client
 }
 
 type Payment struct {
@@ -32,24 +31,28 @@ type Payment struct {
 	AccountNumber string
 	Message       string
 	Amount        int
+	Order         int
+	Timestamp     time.Time
 }
 
 func (cc *CsobClient) CheckPayments() ([]Payment, error) {
-	previousLastAccountingOrder, err := readLastAccountingOrder(cc.filePath)
+	previousLastAccountingOrder, err := cc.db.GetLastPaymentOrder()
 	if err != nil {
 		log.Printf("Can't get last accounting order: %v", err)
-		previousLastAccountingOrder = 400
+		return nil, err
 	}
-	payments, newLastAccountingOrder, err := cc.paymentsSinceLastCheck(previousLastAccountingOrder)
+	payments, err := cc.paymentsSinceLastCheck(previousLastAccountingOrder)
 	if err != nil {
 		log.Printf("Can't get payments: %v", err)
 		return nil, err
 	}
-	// Store lastAccountingOrder
-	err = saveLastAccountingOrder(cc.filePath, newLastAccountingOrder)
-	if err != nil {
-		log.Printf("Can't store last accounting order: %v", err)
-		return nil, err
+	// Store payments to DB
+	for _, payment := range payments {
+		err = cc.db.StorePayment(payment.Name, payment.AccountNumber, payment.Amount, payment.Order, payment.Timestamp)
+		if err != nil {
+			log.Printf("Can't store payment: %v", err)
+			return nil, err
+		}
 	}
 
 	return payments, nil
@@ -117,7 +120,7 @@ type transaction struct {
 	}
 }
 
-func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, int, error) {
+func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, error) {
 	payload := &requestPayments{
 		AccountList: []account{
 			account{
@@ -126,7 +129,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 		},
 		FilterList: []filter{},
 		Paging: paging{
-			RowsPerPage: 10,
+			RowsPerPage: 20,
 			PageNumber:  1,
 		},
 		SortList: []sorting{
@@ -141,13 +144,13 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	body, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("Can't marshal bank account request payload: %v", err)
-		return nil, 0, err
+		return nil, err
 	}
 
 	r, err := http.NewRequest("POST", cc.url, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("Can't create bank request %v\n", err)
-		return nil, 0, err
+		return nil, err
 	}
 	r.Header.Add("Accept", "application/json, text/plain, */*")
 	r.Header.Add("Content-Type", "application/json")
@@ -157,19 +160,19 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	response, err := client.Do(r)
 	if err != nil {
 		log.Printf("Error sending bank request: %v\n", err)
-		return nil, 0, err
+		return nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		log.Printf("Unexpected bank request return code: %d\n", response.StatusCode)
 		log.Printf("Response: %v", response)
-		return nil, 0, errors.New("unexpected bank request return code")
+		return nil, errors.New("unexpected bank request return code")
 	}
 
 	body, err = ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Printf("Can't read bank response body: %v\n", err)
-		return nil, 0, err
+		return nil, err
 	}
 
 	bankResponse := bankResponse{}
@@ -177,7 +180,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	err = json.Unmarshal(body, &bankResponse)
 	if err != nil {
 		log.Printf("Can't unmarshal bank response body: %v\nbody: %v", err, string(body))
-		return nil, 0, err
+		return nil, err
 	}
 	// print(bankResponse)
 	var payments []Payment
@@ -191,8 +194,10 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.AccountNumber,
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.BankCode,
 				),
-				Message: transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
-				Amount:  transaction.BaseInfo.AccountAmountData.Amount,
+				Message:   transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
+				Amount:    transaction.BaseInfo.AccountAmountData.Amount,
+				Order:     transaction.BaseInfo.AccountingOrder,
+				Timestamp: time.Unix(transaction.BaseInfo.AccountingDate/1000, 0),
 			})
 		}
 		if transaction.BaseInfo.AccountingOrder <= lastAccountingOrder {
@@ -204,39 +209,5 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 		log.Printf("Not all payments checked!")
 	}
 
-	return payments, bankResponse.AccountedTransaction[0].BaseInfo.AccountingOrder, nil
-}
-
-// Retrieves a lastAccountingOrder from a local file.
-func readLastAccountingOrder(file string) (int, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		log.Printf("Unable to open lastAccountingOrder for reading: %v", err)
-		return 0, err
-	}
-	defer f.Close()
-
-	r := bufio.NewReader(f)
-	line, _, err := r.ReadLine()
-	if err != nil {
-		log.Printf("Unable to read lastAccountingOrder: %v", err)
-		return 0, err
-	}
-
-	return strconv.Atoi(string(line))
-}
-
-// Saves lastAccountingOrder to a file path.
-func saveLastAccountingOrder(path string, lastAccountOrderNumber int) error {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		log.Printf("Unable to open lastAccountingOrder for writing: %v", err)
-		return err
-	}
-	defer f.Close()
-	if _, err = f.WriteString(strconv.Itoa(lastAccountOrderNumber)); err != nil {
-		log.Printf("Unable to write lastAccountingOrder: %v", err)
-		return err
-	}
-	return nil
+	return payments, nil
 }

@@ -107,7 +107,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			log.Printf("Wrong ADD_ACCOUNT format\n")
 			return nil
 		}
-		err := mp.db.SetAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
+		err := mp.db.SetGroupmeAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing ADD_ACCOUNT: %v", err), "")
 		}
@@ -138,7 +138,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 		atendees = append(atendees, utils.Normalize(a.Name))
 	}
 
-	accountNumber, err := mp.db.GetAccount(senderId)
+	accountNumber, err := mp.db.GetGroupmeAccount(senderId)
 	if err != nil || accountNumber == "" {
 		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
@@ -241,7 +241,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 }
 
 func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message string) error {
-	accountNumber, err := mp.db.GetAccount(senderId)
+	accountNumber, err := mp.db.GetGroupmeAccount(senderId)
 	if err != nil || accountNumber == "" {
 		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
