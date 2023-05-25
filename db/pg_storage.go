@@ -63,8 +63,7 @@ func (c *Client) GetGroupmeAccount(userID string) (string, error) {
 }
 
 func (c *Client) SetGroupmeAccount(userID, account string) error {
-	res, err := c.db.Exec(`INSERT INTO groupme_accounts (user_id, account) VALUES ($1, $2)`, userID, account)
-	log.Printf("DB result %v\n", res)
+	_, err := c.db.Exec(`INSERT INTO groupme_accounts (user_id, account) VALUES ($1, $2)`, userID, account)
 	return err
 }
 
@@ -94,7 +93,6 @@ func (c *Client) GetLastPaymentOrder() (int, error) {
 }
 
 func (c *Client) StorePayment(name, account string, amount, order int, timestamp time.Time) error {
-	res, err := c.db.Exec(`INSERT INTO payments (name, account, amount, accounted_order, accounted_at) VALUES ($1, $2, $3, $4, $5)`, name, account, amount, order, timestamp)
-	log.Printf("DB result %v\n", res)
+	_, err := c.db.Exec(`INSERT INTO payments (name, account, amount, accounted_order, accounted_at) VALUES ($1, $2, $3, $4, $5)`, name, account, amount, order, timestamp)
 	return err
 }
