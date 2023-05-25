@@ -41,6 +41,7 @@ func (cc *CsobClient) CheckPayments() ([]Payment, error) {
 		log.Printf("Can't get last accounting order: %v", err)
 		return nil, err
 	}
+	log.Printf("Getting payments since: %d", previousLastAccountingOrder)
 	payments, err := cc.paymentsSinceLastCheck(previousLastAccountingOrder)
 	if err != nil {
 		log.Printf("Can't get payments: %v", err)
