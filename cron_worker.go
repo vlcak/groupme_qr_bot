@@ -69,12 +69,21 @@ func (cw *CronWorker) CheckNewPayments() {
 					log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
 				}
 
-				log.Printf("Added %d to %s(%s), account %s, resent: %t", payment.Amount, payment.Name, name, payment.AccountNumber, resent)
+				log.Printf("Added %d to %s(%s), account %s, order: %d, resent: %t", payment.Amount, payment.Name, name, payment.AccountNumber, payment.Order, resent)
 				if name == google.HOSTS {
 					log.Printf("Payment not matched and added to hosts %v", payment)
 				}
 
-				cw.messageService.SendMessage(fmt.Sprintf("New payment from: %s(%s), account: %s, amount: %d, resent: %t", payment.Name, userNames[i], payment.AccountNumber, payment.Amount, resent), "")
+				cw.messageService.SendMessage(
+					fmt.Sprintf(
+						"New payment from: %s(%s), account: %s, amount: %d, order: %d, resent: %t",
+						payment.Name,
+						name,
+						payment.AccountNumber,
+						payment.Amount,
+						payment.Order,
+						resent),
+					"")
 				break
 			}
 		}

@@ -81,7 +81,7 @@ func (c *Client) GetName(account string) (string, error) {
 
 func (c *Client) GetLastPaymentOrder() (int, error) {
 	var lastOrder int
-	if err := c.db.Get(&lastOrder, `SELECT accounted_order FROM payments ORDER BY order DESC LIMIT 1`); err != nil {
+	if err := c.db.Get(&lastOrder, `SELECT accounted_order FROM payments ORDER BY accounted_order DESC LIMIT 1`); err != nil {
 		log.Printf("DB query error %v\n", err)
 		return 0, err
 	}
