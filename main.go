@@ -12,6 +12,7 @@ import (
 	"github.com/vlcak/groupme_qr_bot/google"
 	"github.com/vlcak/groupme_qr_bot/groupme"
 	"github.com/vlcak/groupme_qr_bot/tymuj"
+	"log"
 	"net/http"
 	"os"
 )
@@ -44,7 +45,7 @@ func main() {
 	ctx := context.Background()
 	sheetOperator, err := google.NewSheetOperator(ctx, *flagGoogleSheetID, "sa_credentials.json")
 	if err != nil {
-		fmt.Printf("Can't initialize Google sheet client: %v\n", err)
+		log.Printf("Can't initialize Google sheet client: %v", err)
 	}
 	csobClient := bank.NewCsobClient(*flagAccountNumber, *flagCsobURL, dbClient)
 
@@ -52,14 +53,17 @@ func main() {
 	c := cron.New()
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
 	c.Start()
+	defer c.Stop()
 
 	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, *flagBotID, dbClient)
-	fmt.Printf("Starting server...\n")
+	fmt.Printf("Starting server...")
 	err = http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {
-		fmt.Printf("server closed\n")
+		log.Printf("server closed")
 	} else if err != nil {
-		fmt.Printf("error starting server: %v\n", err)
+		log.Printf("error starting server: %v", err)
 		os.Exit(1)
+	} else {
+		log.Printf("Server exited, err: %v", err)
 	}
 }
