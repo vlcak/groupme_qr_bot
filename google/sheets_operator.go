@@ -42,6 +42,10 @@ func ToColumnIndex(index int) string {
 	return fmt.Sprintf("%s%s", string('A'+(index/26)-1), string('A'+(index%26)))
 }
 
+func (so *SheetOperator) GetReadOnlyURL() string {
+	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/edit?usp=sharing", so.spreadsheetId)
+}
+
 func (so *SheetOperator) Get(getRange, valueRenderOption string, removeEmpty bool) ([]string, error) {
 	if valueRenderOption == "" {
 		valueRenderOption = VRO_UNFORMATTED_VALUE

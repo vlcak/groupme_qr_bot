@@ -14,6 +14,7 @@ import (
 type Handler struct {
 	handler          *http.ServeMux
 	messageProcessor *MessageProcessor
+	redirectURL      string
 }
 
 // NewHandler creates a named service handler e.g. "conversations"
@@ -29,6 +30,7 @@ func NewHandler(
 ) *Handler {
 	h := &Handler{}
 	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, botID, dbClient)
+	h.redirectURL = sheetOperator.GetReadOnlyURL()
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/message", h.messageReceived))
@@ -36,7 +38,11 @@ func NewHandler(
 }
 
 func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Got ROOT request\n")
+	log.Printf("Got ROOT request to %s", r.Host)
+	if r.Host == "platby.b-tym.cz" {
+		http.Redirect(w, r, h.redirectURL, http.StatusFound)
+		return
+	}
 	io.WriteString(w, "Hello\n")
 }
 
