@@ -111,6 +111,15 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing ADD_ACCOUNT: %v", err), "")
 		}
+	case "LINEUP":
+		if len(parsedMessage) != 1 {
+			log.Printf("Wrong LINEUP format\n")
+			return nil
+		}
+		err := mp.processLineup()
+		if err != nil {
+			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing LINEUP: %v", err), "")
+		}
 	default:
 		log.Printf("Not a command\n")
 		mp.messageService.SendMessage(fmt.Sprintf("Not a command: %s", command), "")
@@ -273,5 +282,56 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 		return err
 	}
 	mp.messageService.SendMessage(fmt.Sprintf("Here is the payment QR for %s, msg: %s:", amountSplitted, message), imageURL)
+	return nil
+}
+
+func (mp *MessageProcessor) processLineup() error {
+	// events, err := mp.tymujClient.GetEvents(false, true, false, true)
+	events, err := mp.tymujClient.GetEvents(false, true, true, false)
+	if err != nil {
+		log.Printf("Unable to get next game: %v\n", err)
+		return err
+	}
+	// get oldest event
+	lastEvent := events[len(events)-1]
+	log.Printf("Last event: %v", lastEvent)
+	// get lineup
+	atendees, err := mp.tymujClient.GetAtendees(lastEvent.Id, true, []int{})
+	if err != nil {
+		log.Printf("Unable to get atendees: %v\n", err)
+		return err
+	}
+	// get posts and numbers
+	players := []database.Player{}
+	notProcessed := []string{}
+
+	for _, atendee := range atendees {
+		// get player
+		player, err := mp.db.GetPlayerByName(atendee.Name)
+		if err != nil {
+			notProcessed = append(notProcessed, atendee.Name)
+			log.Printf("Unable to get player: %s, err:%v\n", atendee.Name, err)
+			continue
+		}
+		players = append(players, player)
+	}
+
+	retport := ""
+	for _, player := range players {
+		retport += fmt.Sprintf("%s: %d - %s\n", player.Name, player.Number, player.Post)
+	}
+
+	mp.messageService.SendMessage(
+		fmt.Sprintf(
+			"%s game players: \n%s",
+			lastEvent.Name,
+			retport), "")
+
+	if len(notProcessed) > 0 {
+		mp.messageService.SendMessage(
+			fmt.Sprintf(
+				"Players not processed: \n%s",
+				strings.Join(notProcessed, ", ")), "")
+	}
 	return nil
 }
