@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+const (
+	GOALIE  = "goalie"
+	DEFENSE = "defense"
+	FORWARD = "forward"
+)
+
 func NewClient(dbURL string) *Client {
 	dataSource, err := pq.ParseURL(dbURL)
 	if err != nil {

@@ -28,6 +28,7 @@ type Event struct {
 	Name             string
 	IsPast           bool
 	IsGame           bool
+	IsAway           bool
 	StartTime        time.Time
 	EndTime          time.Time
 	PlannedTime      time.Time
@@ -277,6 +278,7 @@ func (c *Client) GetEvents(noGoalies, gamesOnly, past, upcoming bool) ([]Event, 
 				AttendanceTime:   attendanceParsedTime,
 				IsGame:           e.IsGame,
 				IsPast:           e.IsPast,
+				IsAway:           e.IsAway,
 				Capacity:         e.Capacity,
 				AssignCount:      e.AssignCount,
 				SendReminderDays: e.SendReminderDays,
@@ -458,6 +460,7 @@ func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
 		Name:             name,
 		IsPast:           newEvent.IsPast,
 		IsGame:           newEvent.IsGame,
+		IsAway:           newEvent.IsAway,
 		StartTime:        startParsedTime,
 		EndTime:          endParsedTime,
 		PlannedTime:      plannedParsedTime,

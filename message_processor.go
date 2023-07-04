@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,15 +44,16 @@ func NewMessageProcessor(
 	messageService *groupme.MessageService,
 	tymujClient *tymuj.Client,
 	sheetOperator *google.SheetOperator,
+	driveOperator *google.DriveOperator,
 	selfID string,
 	db *database.Client,
 ) *MessageProcessor {
-
 	m := &MessageProcessor{
 		imageService:     imageService,
 		messageService:   messageService,
 		tymujClient:      tymujClient,
 		sheetOperator:    sheetOperator,
+		driveOperator:    driveOperator,
 		paymentGenerator: utils.NewQRPaymentGenerator(),
 		selfID:           selfID,
 		db:               db,
@@ -64,6 +66,7 @@ type MessageProcessor struct {
 	messageService   *groupme.MessageService
 	paymentGenerator *utils.QRPaymentGenerator
 	sheetOperator    *google.SheetOperator
+	driveOperator    *google.DriveOperator
 	tymujClient      *tymuj.Client
 	selfID           string
 	db               *database.Client
@@ -316,6 +319,54 @@ func (mp *MessageProcessor) processLineup() error {
 		players = append(players, player)
 	}
 
+	unknownPosts := []string{}
+	lineupFileName := fmt.Sprintf("%s - %s", lastEvent.StartTime.Format("20060102"), lastEvent.Name)
+	newLineup, err := mp.driveOperator.CopyFile(google.LINEUP_TEMPLATE_ID, lineupFileName)
+	if err != nil {
+		log.Printf("Unable to copy lineup template: %v\n", err)
+		return err
+	}
+
+	column := google.HOME_COL
+	if lastEvent.IsAway {
+		column = google.AWAY_COL
+	}
+	fwdIndex := google.FWD_ROW
+	defIndex := google.DEF_ROW
+	golIndex := google.GOL_ROW
+	i := 0
+	sheetOperator, err := google.NewSheetOperator(context.Background(), newLineup.Id)
+	if err != nil {
+		log.Printf("Unable to create sheet operator: %v\n", err)
+		return err
+	}
+
+	for _, player := range players {
+		switch player.Post.String {
+		case database.FORWARD:
+			i = fwdIndex
+			golIndex++
+		case database.DEFENSE:
+			i = defIndex
+			defIndex++
+		case database.GOALIE:
+			i = golIndex
+			golIndex++
+		default:
+			log.Printf("Unknown post: %s\n", player.Post.String)
+			unknownPosts = append(unknownPosts, player.Name.String)
+			continue
+		}
+
+		cellAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(column), i)
+		record := []interface{}{player.Name.String, player.Number.Int64}
+		err = sheetOperator.Write(cellAddress, record)
+		if err != nil {
+			log.Printf("Unable to write to sheet: %v\n", err)
+			return err
+		}
+	}
+
 	report := ""
 	for _, player := range players {
 		report += fmt.Sprintf("%s: %d - %s\n", player.Name.String, player.Number.Int64, player.Post.String)
@@ -333,5 +384,13 @@ func (mp *MessageProcessor) processLineup() error {
 				"Players not processed: \n%s",
 				strings.Join(notProcessed, ", ")), "")
 	}
+
+	if len(unknownPosts) > 0 {
+		mp.messageService.SendMessage(
+			fmt.Sprintf(
+				"Unknown posts: \n%s",
+				strings.Join(unknownPosts, ", ")), "")
+	}
+
 	return nil
 }

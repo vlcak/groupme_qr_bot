@@ -25,11 +25,12 @@ func NewHandler(
 	messageService *groupme.MessageService,
 	tymujClient *tymuj.Client,
 	sheetOperator *google.SheetOperator,
+	driveOperator *google.DriveOperator,
 	botID string,
 	dbClient *database.Client,
 ) *Handler {
 	h := &Handler{}
-	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, botID, dbClient)
+	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, driveOperator, botID, dbClient)
 	h.redirectURL = sheetOperator.GetReadOnlyURL()
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))

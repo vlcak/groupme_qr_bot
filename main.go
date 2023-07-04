@@ -43,7 +43,8 @@ func main() {
 	tymujClient := tymuj.NewClient(*flagTymujToken, *flagTymujTeamID)
 	dbClient := database.NewClient(*flagDbURL)
 	ctx := context.Background()
-	sheetOperator, err := google.NewSheetOperator(ctx, *flagGoogleSheetID, "sa_credentials.json")
+	sheetOperator, err := google.NewSheetOperator(ctx, *flagGoogleSheetID)
+	driveOperator, err := google.NewDriveOperator(ctx)
 	if err != nil {
 		log.Printf("Can't initialize Google sheet client: %v", err)
 	}
@@ -55,7 +56,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, *flagBotID, dbClient)
+	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, driveOperator, *flagBotID, dbClient)
 	fmt.Printf("Starting server...")
 	err = http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {

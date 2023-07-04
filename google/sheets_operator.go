@@ -10,6 +10,8 @@ import (
 )
 
 const (
+	CREDENTIALS_FILE_PATH = "sa_credentials.json"
+
 	IDO_INSERT_ROWS       = "INSERT_ROWS"
 	VIO_USER_ENTERED      = "USER_ENTERED"
 	VRO_FORMULA           = "FORMULA"
@@ -18,8 +20,8 @@ const (
 	HOSTS = "hosté"
 )
 
-func NewSheetOperator(ctx context.Context, spreadsheetId, credentialsFilePath string) (*SheetOperator, error) {
-	srv, err := sheets.NewService(ctx, option.WithCredentialsFile(credentialsFilePath))
+func NewSheetOperator(ctx context.Context, spreadsheetId string) (*SheetOperator, error) {
+	srv, err := sheets.NewService(ctx, option.WithCredentialsFile(CREDENTIALS_FILE_PATH))
 	if err != nil {
 		log.Printf("Unable to retrieve Sheets client: %v", err)
 		return nil, err
