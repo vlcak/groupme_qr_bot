@@ -290,7 +290,7 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 }
 
 func (mp *MessageProcessor) processLineup() error {
-	events, err := mp.tymujClient.GetEvents(false, true, true, false)
+	events, err := mp.tymujClient.GetEvents(false, true, false, true)
 	if err != nil {
 		log.Printf("Unable to get next game: %v\n", err)
 		return err
