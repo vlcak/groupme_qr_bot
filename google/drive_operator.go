@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	LINEUP_TEMPLATE_ID = "1lijx2adeGiokWTpzPKEa_33y9reg3c4J"
+	LINEUP_TEMPLATE_ID = "11m9Gh30hFEcThyhDO4z3zyj2mJnWYm6Gf8ojyi7HxUY"
 	FWD_ROW            = 3
 	DEF_ROW            = 16
 	GOL_ROW            = 26
-	HOME_COL           = 2
-	AWAY_COL           = 8
+	HOME_COL           = 1
+	AWAY_COL           = 7
 )
 
 func NewDriveOperator(ctx context.Context) (*DriveOperator, error) {
