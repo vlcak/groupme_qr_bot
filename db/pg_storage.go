@@ -94,7 +94,7 @@ func (c *Client) GetName(account string) (string, error) {
 
 func (c *Client) GetPlayerByName(name string) (Player, error) {
 	var player Player
-	if err := c.db.Get(&player, `SELECT * FROM players WHERE name = $1`, name); err != nil {
+	if err := c.db.Get(&player, `SELECT p.* FROM players AS p LEFT JOIN nicknames AS n ON p.id = n.player_id WHERE p.name = $1 OR n.nickname = $1`, name); err != nil {
 		log.Printf("DB query error %v\n", err)
 		return player, err
 	}
