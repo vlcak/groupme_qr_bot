@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -326,7 +327,7 @@ func (mp *MessageProcessor) processLineup() error {
 
 	sort.Slice(players, func(i, j int) bool {
 		if !players[i].Number.Valid && !players[j].Number.Valid {
-			return players[i].Name < players[j].Name
+			return players[i].Name.String < players[j].Name.String
 		} else if !players[i].Number.Valid {
 			return false
 		} else if !players[j].Number.Valid {
