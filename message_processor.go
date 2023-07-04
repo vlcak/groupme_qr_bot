@@ -295,6 +295,11 @@ func (mp *MessageProcessor) processLineup() error {
 		log.Printf("Unable to get next game: %v\n", err)
 		return err
 	}
+	if len(events) == 0 {
+		log.Printf("No future games found\n")
+		return errors.New("No future games found")
+	}
+
 	// get oldest event
 	lastEvent := events[len(events)-1]
 	log.Printf("Last event: %v", lastEvent)
@@ -318,6 +323,17 @@ func (mp *MessageProcessor) processLineup() error {
 		}
 		players = append(players, player)
 	}
+
+	sort.Slice(players, func(i, j int) bool {
+		if !players[i].Number.Valid && !players[j].Number.Valid {
+			return players[i].Name < players[j].Name
+		} else if !players[i].Number.Valid {
+			return false
+		} else if !players[j].Number.Valid {
+			return true
+		}
+		return players[i].Number.Int64 < players[j].Number.Int64
+	})
 
 	unknownPosts := []string{}
 	lineupFileName := fmt.Sprintf("%s - %s", lastEvent.StartTime.Format("20060102"), lastEvent.Name)
@@ -345,7 +361,7 @@ func (mp *MessageProcessor) processLineup() error {
 		switch player.Post.String {
 		case database.FORWARD:
 			i = fwdIndex
-			golIndex++
+			fwdIndex++
 		case database.DEFENSE:
 			i = defIndex
 			defIndex++
