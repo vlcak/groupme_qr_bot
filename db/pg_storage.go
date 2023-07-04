@@ -45,6 +45,19 @@ type UserAccount struct {
 	Name    sql.NullString `db:"name" json:"name"`
 }
 
+type Player struct {
+	Id     sql.NullInt64  `db:"id" json:"id"`
+	Name   sql.NullString `db:"name" json:"name"`
+	Number sql.NullInt64  `db:"number" json:"number"`
+	Post   sql.NullString `db:"post" json:"post"`
+}
+
+type BankAccount struct {
+	Id       sql.NullInt64  `db:"id" json:"id"`
+	PlayerId sql.NullInt64  `db:"player_id" json:"player_id"`
+	Account  sql.NullString `db:"account" json:"account"`
+}
+
 type Payment struct {
 	Account sql.NullString `db:"account" json:"account"`
 	Name    sql.NullString `db:"name" json:"name"`
@@ -69,7 +82,7 @@ func (c *Client) SetGroupmeAccount(userID, account string) error {
 
 func (c *Client) GetName(account string) (string, error) {
 	var name string
-	if err := c.db.Get(&name, `SELECT name FROM user_accounts WHERE account = $1`, account); err != nil {
+	if err := c.db.Get(&name, `SELECT p.name FROM players AS p JOIN bank_accounts AS b ON p.id = b.player_id WHERE b.account = $1`, account); err != nil {
 		log.Printf("DB query error %v\n", err)
 		return "", err
 	}
@@ -77,6 +90,18 @@ func (c *Client) GetName(account string) (string, error) {
 		log.Printf("No names found for account %s", account)
 	}
 	return name, nil
+}
+
+func (c *Client) GetPlayerByName(name string) (Player, error) {
+	var player Player
+	if err := c.db.Get(&player, `SELECT number, post FROM players WHERE name = $1`, name); err != nil {
+		log.Printf("DB query error %v\n", err)
+		return player, err
+	}
+	if !player.Id.Valid {
+		log.Printf("No players found for %s", name)
+	}
+	return player, nil
 }
 
 func (c *Client) GetLastPaymentOrder() (int, error) {
