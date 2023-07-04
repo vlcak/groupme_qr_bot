@@ -316,16 +316,16 @@ func (mp *MessageProcessor) processLineup() error {
 		players = append(players, player)
 	}
 
-	retport := ""
+	report := ""
 	for _, player := range players {
-		retport += fmt.Sprintf("%s: %d - %s\n", player.Name, player.Number, player.Post)
+		report += fmt.Sprintf("%s: %d - %s\n", player.Name.String, player.Number.Int64, player.Post.String)
 	}
 
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
 			"%s game players: \n%s",
 			lastEvent.Name,
-			retport), "")
+			report), "")
 
 	if len(notProcessed) > 0 {
 		mp.messageService.SendMessage(
