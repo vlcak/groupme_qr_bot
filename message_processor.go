@@ -290,7 +290,6 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 }
 
 func (mp *MessageProcessor) processLineup() error {
-	// events, err := mp.tymujClient.GetEvents(false, true, false, true)
 	events, err := mp.tymujClient.GetEvents(false, true, true, false)
 	if err != nil {
 		log.Printf("Unable to get next game: %v\n", err)
@@ -358,16 +357,22 @@ func (mp *MessageProcessor) processLineup() error {
 		return err
 	}
 
+	forward := ""
+	defense := ""
+	goalie := ""
 	for _, player := range players {
 		switch player.Post.String {
 		case database.FORWARD:
 			i = fwdIndex
+			forward += fmt.Sprintf("%s %d\n", player.Name.String, player.Number.Int64)
 			fwdIndex++
 		case database.DEFENSE:
 			i = defIndex
+			defense += fmt.Sprintf("%s %d\n", player.Name.String, player.Number.Int64)
 			defIndex++
 		case database.GOALIE:
 			i = golIndex
+			goalie += fmt.Sprintf("%s %d\n", player.Name.String, player.Number.Int64)
 			golIndex++
 		default:
 			log.Printf("Unknown post: %s\n", player.Post.String)
@@ -384,16 +389,13 @@ func (mp *MessageProcessor) processLineup() error {
 		}
 	}
 
-	report := ""
-	for _, player := range players {
-		report += fmt.Sprintf("%s: %d - %s\n", player.Name.String, player.Number.Int64, player.Post.String)
-	}
-
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
-			"%s game players: \n%s",
+			"%s game\nFORWARD:\n%s\nDEFENSE:\n%s\nGOALIE:\n%s",
 			lastEvent.Name,
-			report), "")
+			forward,
+			defense,
+			goalie), "")
 
 	if len(notProcessed) > 0 {
 		mp.messageService.SendMessage(
