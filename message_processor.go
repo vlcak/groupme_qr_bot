@@ -120,7 +120,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 }
 
 func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
-	events, err := mp.tymujClient.GetEvents(true, true)
+	events, err := mp.tymujClient.GetEvents(true, false, true, false)
 	if err != nil {
 		log.Printf("Unable to get events: %v\n", err)
 		return err
