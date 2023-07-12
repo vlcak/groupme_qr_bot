@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	graphql "github.com/hasura/go-graphql-client"
+	"github.com/vlcak/groupme_qr_bot/utils"
 	"golang.org/x/exp/slices"
 	"golang.org/x/oauth2"
 	"log"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -40,11 +42,11 @@ type Event struct {
 }
 
 type EventListInput struct {
-	TeamId   int  `json:"teamId,omitempty"`
-	Upcoming bool `json:"upcoming,omitempty"`
-	Past     bool `json:"past,omitempty"`
-	// DateFrom time.Time `json:"dateFrom,omitempty"`
-	// DateTo   time.Time `json:"dateTo,omitempty"`
+	TeamId   int    `json:"teamId,omitempty"`
+	Upcoming bool   `json:"upcoming,omitempty"`
+	Past     bool   `json:"past,omitempty"`
+	DateFrom string `json:"dateFrom,omitempty"`
+	DateTo   string `json:"dateTo,omitempty"`
 }
 
 type Team struct {
@@ -57,6 +59,27 @@ type Member struct {
 	Id    graphql.ID
 	Name  string
 	Karma int
+}
+
+type Location struct {
+	Id      graphql.ID
+	Name    string
+	Address string
+}
+
+func (l *Location) Match(location string) bool {
+	normalizedLocation := utils.Normalize(location)
+	return strings.Contains(utils.Normalize(l.Name), normalizedLocation) || strings.Contains(utils.Normalize(l.Address), normalizedLocation)
+}
+
+type Opponent struct {
+	Id   graphql.ID
+	Name string
+}
+
+func (o *Opponent) Match(opponent string) bool {
+	normalizedOpponent := utils.Normalize(opponent)
+	return strings.Contains(utils.Normalize(o.Name), normalizedOpponent)
 }
 
 type EventCreateInput struct {
@@ -223,8 +246,8 @@ func (c *Client) GetEvents(noGoalies, gamesOnly, past, upcoming bool) ([]Event, 
 			TeamId:   c.teamId,
 			Upcoming: false,
 			Past:     false,
-			// DateFrom: time.Now().Add(-1 * time.Hour * 24),
-			// DateTo:   time.Now().Add(time.Hour * 48),
+			DateFrom: time.Now().Add(-1 * time.Hour * 24 * 30).Format(time.RFC3339),
+			DateTo:   time.Now().Add(time.Hour * 24 * 30).Format(time.RFC3339),
 		},
 	}
 	pageItems := 1
@@ -385,6 +408,64 @@ func (c *Client) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups []int) 
 		}
 	}
 	return atendees, nil
+}
+
+func (c *Client) GetLocations() ([]Location, error) {
+	var query struct {
+		EventLocations []struct {
+			Id      graphql.ID
+			Name    string
+			Address string
+		} `graphql:"eventLocations(teamId: $teamId)"`
+	}
+
+	variables := map[string]interface{}{
+		"teamId": graphql.ToID(c.teamId),
+	}
+	if err := c.client2.Query(context.Background(), &query, variables); err != nil {
+		log.Printf("Unable to query locations: %v", err)
+		return nil, err
+	}
+
+	locations := []Location{}
+
+	for _, l := range query.EventLocations {
+		locations = append(locations, Location{
+			Id:      l.Id,
+			Name:    l.Name,
+			Address: l.Address,
+		})
+	}
+
+	return locations, nil
+}
+
+func (c *Client) GetOpponents() ([]Opponent, error) {
+	var query struct {
+		EventOpponents []struct {
+			Id   graphql.ID
+			Name string
+		} `graphql:"eventOpponents(teamId: $teamId)"`
+	}
+
+	variables := map[string]interface{}{
+		"teamId": graphql.ToID(c.teamId),
+	}
+	if err := c.client2.Query(context.Background(), &query, variables); err != nil {
+		log.Printf("Unable to query opponents: %v", err)
+		return nil, err
+	}
+
+	opponents := []Opponent{}
+
+	for _, o := range query.EventOpponents {
+		opponents = append(opponents, Opponent{
+			Id:   o.Id,
+			Name: o.Name,
+		})
+	}
+
+	return opponents, nil
 }
 
 func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
