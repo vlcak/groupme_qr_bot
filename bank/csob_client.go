@@ -17,6 +17,7 @@ func NewCsobClient(accountNumber int, bankURL string, db *database.Client) *Csob
 		accountNumber: accountNumber,
 		url:           bankURL,
 		db:            db,
+		viewURL:       fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d", accountNumber),
 	}
 }
 
@@ -24,6 +25,7 @@ type CsobClient struct {
 	accountNumber int
 	url           string
 	db            *database.Client
+	viewURL       string
 }
 
 type Payment struct {
@@ -57,6 +59,10 @@ func (cc *CsobClient) CheckPayments() ([]Payment, error) {
 	}
 
 	return payments, nil
+}
+
+func (cc *CsobClient) GetAccountURL() string {
+	return cc.viewURL
 }
 
 type account struct {

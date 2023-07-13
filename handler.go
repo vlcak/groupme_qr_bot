@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/vlcak/groupme_qr_bot/bank"
 	"github.com/vlcak/groupme_qr_bot/db"
 	"github.com/vlcak/groupme_qr_bot/google"
 	"github.com/vlcak/groupme_qr_bot/groupme"
@@ -14,7 +15,9 @@ import (
 type Handler struct {
 	handler          *http.ServeMux
 	messageProcessor *MessageProcessor
-	redirectURL      string
+	accountURL       string
+	paymentsURL      string
+	tymujURL         string
 }
 
 // NewHandler creates a named service handler e.g. "conversations"
@@ -28,20 +31,33 @@ func NewHandler(
 	driveOperator *google.DriveOperator,
 	botID string,
 	dbClient *database.Client,
+	bankClient *bank.CsobClient,
 ) *Handler {
 	h := &Handler{}
 	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, driveOperator, botID, dbClient)
-	h.redirectURL = sheetOperator.GetReadOnlyURL()
+	h.accountURL = bankClient.GetAccountURL()
+	h.paymentsURL = sheetOperator.GetReadOnlyURL()
+	h.tymujURL = tymujClient.GetURL()
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/message", h.messageReceived))
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/platby", h.redirectToPaymetns))
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/tymuj", h.messageReceived))
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/ucet", h.messageReceived))
 	return h
 }
 
 func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got ROOT request to %s", r.Host)
-	if r.Host == "platby.b-tym.cz" {
-		http.Redirect(w, r, h.redirectURL, http.StatusFound)
+	switch r.Host {
+	case "platby.b-tym.cz":
+		http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+		return
+	case "tymuj.b-tym.cz":
+		http.Redirect(w, r, h.tymujURL, http.StatusFound)
+		return
+	case "ucet.b-tym.cz":
+		http.Redirect(w, r, h.accountURL, http.StatusFound)
 		return
 	}
 	io.WriteString(w, "Hello\n")
@@ -51,6 +67,21 @@ func (h *Handler) messageReceived(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got MESSAGE request\n")
 	h.messageProcessor.ProcessMessage(r.Body)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) redirectToAccount(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Got ACCOUNT request\n")
+	http.Redirect(w, r, h.accountURL, http.StatusFound)
+}
+
+func (h *Handler) redirectToPaymetns(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Got PAYMENTS request\n")
+	http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+}
+
+func (h *Handler) redirectToTymuj(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Got TYMUJ request\n")
+	http.Redirect(w, r, h.tymujURL, http.StatusFound)
 }
 
 func (h *Handler) Mux() *http.ServeMux {

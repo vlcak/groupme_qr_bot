@@ -56,7 +56,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, driveOperator, *flagBotID, dbClient)
+	handler := NewHandler(newRelicApp, imageService, messageService, tymujClient, sheetOperator, driveOperator, *flagBotID, dbClient, csobClient)
 	fmt.Printf("Starting server...")
 	err = http.ListenAndServe(*flagPort, handler.Mux())
 	if errors.Is(err, http.ErrServerClosed) {

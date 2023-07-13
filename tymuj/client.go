@@ -112,6 +112,7 @@ func NewClient(token string, teamId int) *Client {
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
 	return &Client{
+		baseURL:    "https://app.tymuj.cz/",
 		client2:    graphql.NewClient("https://api2.tymuj.cz/graphql", httpClient),
 		clientRust: graphql.NewClient("https://rust-api.tymuj.cz/graphql", httpClient),
 		teamId:     teamId,
@@ -119,6 +120,7 @@ func NewClient(token string, teamId int) *Client {
 }
 
 type Client struct {
+	baseURL    string
 	client2    *graphql.Client
 	clientRust *graphql.Client
 	teamId     int
@@ -551,6 +553,10 @@ func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
 		SendReminderDays: newEvent.SendReminderDays,
 		Location:         newEvent.Location.Name,
 	}, nil
+}
+
+func (c *Client) GetURL() string {
+	return c.baseURL
 }
 
 func print(v interface{}) {
