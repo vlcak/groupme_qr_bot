@@ -63,7 +63,7 @@ func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
 	var deviceInfo *devicedetector.DeviceInfo
 	if h.deviceDetector != nil {
 		deviceInfo = h.deviceDetector.Parse(r.UserAgent())
-		log.Printf("Device type: %s", parser.GetDeviceName(deviceInfo.GetDeviceType()))
+		log.Printf("Device type: %s, bot: %t", parser.GetDeviceName(deviceInfo.GetDeviceType()), deviceInfo.IsBot())
 	}
 	switch r.Host {
 	case "platby.b-tym.cz":
