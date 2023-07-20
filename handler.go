@@ -60,6 +60,10 @@ func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got ROOT request to %s", r.Host)
 	switch r.Host {
 	case "platby.b-tym.cz":
+		if h.deviceDetector == nil {
+			http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+			return
+		}
 		info := h.deviceDetector.Parse(r.UserAgent())
 		if info.IsMobile() {
 			http.Redirect(w, r, h.mobilePaymentsURL, http.StatusFound)
