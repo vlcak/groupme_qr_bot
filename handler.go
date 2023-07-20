@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gamebtc/devicedetector"
+	"github.com/gamebtc/devicedetector/parser"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/vlcak/groupme_qr_bot/bank"
 	"github.com/vlcak/groupme_qr_bot/db"
@@ -59,14 +60,14 @@ func NewHandler(
 
 func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got ROOT request to %s", r.Host)
+	var deviceInfo *devicedetector.DeviceInfo
+	if h.deviceDetector != nil {
+		deviceInfo = h.deviceDetector.Parse(r.UserAgent())
+		log.Printf("Device type: %s", parser.GetDeviceName(deviceInfo.GetDeviceType()))
+	}
 	switch r.Host {
 	case "platby.b-tym.cz":
-		if h.deviceDetector == nil {
-			http.Redirect(w, r, h.paymentsURL, http.StatusFound)
-			return
-		}
-		info := h.deviceDetector.Parse(r.UserAgent())
-		if info.IsMobile() {
+		if deviceInfo != nil && deviceInfo.IsMobile() {
 			http.Redirect(w, r, h.mobilePaymentsURL, http.StatusFound)
 		} else {
 			http.Redirect(w, r, h.paymentsURL, http.StatusFound)
