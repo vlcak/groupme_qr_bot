@@ -45,7 +45,7 @@ func ToColumnIndex(index int) string {
 }
 
 func (so *SheetOperator) GetReadOnlyURL() string {
-	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/edit?usp=sharing", so.spreadsheetId)
+	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/htmlview", so.spreadsheetId)
 }
 
 func (so *SheetOperator) GetReadOnlyURLToSheet(id int) string {
@@ -58,7 +58,7 @@ func (so *SheetOperator) GetReadOnlyURLToSheet(id int) string {
 		log.Printf("Invalid sheet index: %d", id)
 		return so.GetReadOnlyURL()
 	}
-	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/edit#gid=%d", so.spreadsheetId, ids[id])
+	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/htmlview?gid=%d", so.spreadsheetId, ids[id])
 }
 
 func (so *SheetOperator) GetSheetIDs() ([]int, error) {
