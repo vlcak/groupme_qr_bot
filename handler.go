@@ -35,6 +35,7 @@ func NewHandler(
 	botID string,
 	dbClient *database.Client,
 	bankClient *bank.CsobClient,
+	deviceDetectorRegexes string,
 ) *Handler {
 	h := &Handler{}
 	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, driveOperator, botID, dbClient)
@@ -49,9 +50,9 @@ func NewHandler(
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/tymuj", h.messageReceived))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/ucet", h.messageReceived))
 	var err error
-	h.deviceDetector, err = devicedetector.NewDeviceDetector("~/src/github.com/motomo-org/device-detector/regexes")
+	h.deviceDetector, err = devicedetector.NewDeviceDetector(deviceDetectorRegexes)
 	if err != nil {
-		log.Printf("Can't initialize device detector: %v", err)
+		log.Printf("Can't initialize device detector: %v, path: %s", err, deviceDetectorRegexes)
 	}
 	return h
 }
