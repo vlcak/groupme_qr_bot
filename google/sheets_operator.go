@@ -48,6 +48,32 @@ func (so *SheetOperator) GetReadOnlyURL() string {
 	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/edit?usp=sharing", so.spreadsheetId)
 }
 
+func (so *SheetOperator) GetReadOnlyURLToSheet(id int) string {
+	ids, err := so.GetSheetIDs()
+	if err != nil {
+		log.Printf("Unable to retrieve data from sheet: %v", err)
+		return so.GetReadOnlyURL()
+	}
+	if id < 0 || id >= len(ids) {
+		log.Printf("Invalid sheet index: %d", id)
+		return so.GetReadOnlyURL()
+	}
+	return fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/edit#gid=%d", so.spreadsheetId, ids[id])
+}
+
+func (so *SheetOperator) GetSheetIDs() ([]int, error) {
+	sheet, err := so.service.Spreadsheets.Get(so.spreadsheetId).Do()
+	if err != nil {
+		log.Printf("Unable to retrieve data from sheet: %v", err)
+		return nil, err
+	}
+	sheetIDs := []int{}
+	for _, s := range sheet.Sheets {
+		sheetIDs = append(sheetIDs, int(s.Properties.SheetId))
+	}
+	return sheetIDs, nil
+}
+
 func (so *SheetOperator) Get(getRange, valueRenderOption string, removeEmpty bool) ([]string, error) {
 	if valueRenderOption == "" {
 		valueRenderOption = VRO_UNFORMATTED_VALUE

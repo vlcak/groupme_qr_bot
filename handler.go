@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gamebtc/devicedetector"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/vlcak/groupme_qr_bot/bank"
 	"github.com/vlcak/groupme_qr_bot/db"
@@ -13,11 +14,13 @@ import (
 )
 
 type Handler struct {
-	handler          *http.ServeMux
-	messageProcessor *MessageProcessor
-	accountURL       string
-	paymentsURL      string
-	tymujURL         string
+	handler           *http.ServeMux
+	messageProcessor  *MessageProcessor
+	deviceDetector    *devicedetector.DeviceDetector
+	accountURL        string
+	paymentsURL       string
+	mobilePaymentsURL string
+	tymujURL          string
 }
 
 // NewHandler creates a named service handler e.g. "conversations"
@@ -37,6 +40,7 @@ func NewHandler(
 	h.messageProcessor = NewMessageProcessor(imageService, messageService, tymujClient, sheetOperator, driveOperator, botID, dbClient)
 	h.accountURL = bankClient.GetAccountURL()
 	h.paymentsURL = sheetOperator.GetReadOnlyURL()
+	h.mobilePaymentsURL = sheetOperator.GetReadOnlyURLToSheet(1)
 	h.tymujURL = tymujClient.GetURL()
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
@@ -44,6 +48,11 @@ func NewHandler(
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/platby", h.redirectToPaymetns))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/tymuj", h.messageReceived))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/ucet", h.messageReceived))
+	var err error
+	h.deviceDetector, err = devicedetector.NewDeviceDetector("regexes")
+	if err != nil {
+		log.Printf("Can't initialize device detector: %v", err)
+	}
 	return h
 }
 
@@ -51,7 +60,12 @@ func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got ROOT request to %s", r.Host)
 	switch r.Host {
 	case "platby.b-tym.cz":
-		http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+		info := h.deviceDetector.Parse(r.UserAgent())
+		if info.IsMobile() {
+			http.Redirect(w, r, h.mobilePaymentsURL, http.StatusFound)
+		} else {
+			http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+		}
 		return
 	case "tymuj.b-tym.cz":
 		http.Redirect(w, r, h.tymujURL, http.StatusFound)
