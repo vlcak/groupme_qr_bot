@@ -49,7 +49,7 @@ func NewHandler(
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/tymuj", h.messageReceived))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/ucet", h.messageReceived))
 	var err error
-	h.deviceDetector, err = devicedetector.NewDeviceDetector("regexes")
+	h.deviceDetector, err = devicedetector.NewDeviceDetector("~/src/github.com/motomo-org/device-detector/regexes")
 	if err != nil {
 		log.Printf("Can't initialize device detector: %v", err)
 	}
