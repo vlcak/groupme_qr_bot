@@ -29,7 +29,7 @@ var (
 	flagAccountNumber   = flag.Int("account-number", 311396620, "Account number")
 	flagCsobURL         = flag.String("csob-url", "https://www.csob.cz/et-npw-lta-view/api/detail/transactionList", "CSOB transaction list URI")
 	flagNewRelicLicense = flag.String("newrelic-license", "", "NewRelic license")
-	flagDeviceDetector  = flag.String("device-detector-regexes", "~/src/github.com/motomo-org/device-detector/regexes", "Folder with device detector regexes")
+	flagDeviceDetector  = flag.String("device-detector-regexes", "regexes", "Folder with device detector regexes")
 )
 
 func main() {
