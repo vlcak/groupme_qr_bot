@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
@@ -23,6 +24,7 @@ import (
 
 const (
 	GOALIES_GROUP_ID = 2662
+	TEAM_NAME        = "B-Tým"
 )
 
 type GroupmeMessage struct {
@@ -123,6 +125,15 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		err := mp.processLineup()
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing LINEUP: %v", err), "")
+		}
+	case "CREATE_GAMES":
+		if len(parsedMessage) != 2 {
+			log.Printf("Wrong CREATE_GAMES format\n")
+			return nil
+		}
+		err := mp.createGames(strings.TrimSpace(parsedMessage[1]))
+		if err != nil {
+			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing CREATE_GAMES: %v", err), "")
 		}
 	default:
 		log.Printf("Not a command\n")
@@ -410,6 +421,161 @@ func (mp *MessageProcessor) processLineup() error {
 				"Unknown posts: \n%s",
 				strings.Join(unknownPosts, ", ")), "")
 	}
+
+	mp.messageService.SendMessage(
+		fmt.Sprintf(
+			"Lineup sheet URL: %s",
+			sheetOperator.GetReadOnlyURL), "")
+
+	return nil
+}
+
+func (mp *MessageProcessor) createGames(sheetURL string) error {
+	googleSheetOperator, err := google.NewSheetOperator(context.Background(), sheetURL)
+	if err != nil {
+		log.Printf("Unable to create sheet operator: %v\n", err)
+		return err
+	}
+
+	rowIndex := 1
+	for row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), "", false); true; {
+		if err != nil {
+			log.Printf("Unable to read row: %v\n", err)
+			return err
+		}
+		if len(row) == 0 {
+			break
+		}
+		rowIndex++
+		if len(row) != 6 {
+			log.Printf("Invalid row length: %d\n", len(row))
+			continue
+		}
+		isAway := false
+		opponent := row[1]
+		if utils.Normalize(row[0]) != utils.Normalize(TEAM_NAME) {
+			isAway = true
+			opponent = row[0]
+		}
+		date := row[2]
+		startTime := row[3]
+		capacity := row[4]
+		where := row[5]
+
+		err = mp.createEvent(where, date, startTime, capacity, "", opponent, isAway)
+		if err != nil {
+			log.Printf("Unable to create event: %v\n", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, oponent string, away bool) error {
+	team, err := mp.tymujClient.GetTeam([]int{}, 0)
+	if err != nil {
+		log.Printf("Unable to get team: %v\n", err)
+		return err
+	}
+	playerIDs := []string{}
+	for _, player := range team.Members {
+		playerIDs = append(playerIDs, string(player.Id))
+	}
+
+	eventCreateInput := tymuj.EventCreateInput{
+		IsGame:           oponent != "",
+		Note:             "",
+		SendReminderDays: 3,
+		PlayerIDs:        []string{"35988"},
+		// PlayerIDs:        playerIDs,
+	}
+
+	// parse where
+	location, err := mp.tymujClient.GetLocations()
+	if err != nil {
+		log.Printf("Unable to get locations: %v\n", err)
+		return err
+	}
+	if len(location) == 0 {
+		log.Printf("No locations found\n")
+		return errors.New("No locations found")
+	}
+	for _, loc := range location {
+		if loc.Match(where) {
+			eventCreateInput.LocationID = string(loc.Id)
+			break
+		}
+	}
+	if eventCreateInput.LocationID == "" {
+		log.Printf("No location found\n")
+		return errors.New("No location found")
+	}
+
+	if eventCreateInput.IsGame {
+		// parse oponent
+		opponents, err := mp.tymujClient.GetOpponents()
+		if err != nil {
+			log.Printf("Unable to get opponents: %v\n", err)
+			return err
+		}
+		if len(opponents) == 0 {
+			log.Printf("No opponents found\n")
+			return errors.New("No opponents found")
+		}
+		for _, opp := range opponents {
+			if opp.Match(oponent) {
+				oID := string(opp.Id)
+				eventCreateInput.OpponentID = &oID
+				break
+			}
+		}
+		if eventCreateInput.OpponentID == nil {
+			log.Printf("No opponent found\n")
+			return errors.New("No opponent found")
+		}
+		eventCreateInput.IsAway = away
+	} else {
+		eventCreateInput.Name = name
+	}
+
+	// parse when
+	now := time.Now()
+	t, err := time.Parse("2006-2.1. 15:04", fmt.Sprintf("%d-%s", now.Year(), date, startTime))
+	if t.Before(now) {
+		t = t.AddDate(1, 0, 0)
+	}
+	t = t.Local()
+	length := 60
+	if eventCreateInput.IsGame {
+		length = 75
+	}
+	timeBlock := tymuj.TimeBlockInput{
+		StartTime:      t,
+		EndTime:        t.Add(time.Minute * time.Duration(length)),
+		PlannedTime:    t.Add(time.Minute * -30),
+		AttendanceTime: t.Add(time.Hour * -48),
+	}
+	eventCreateInput.TimeBlocks = []tymuj.TimeBlockInput{timeBlock}
+
+	// parse capacity
+	capacityInt, err := strconv.Atoi(capacity)
+	if err != nil {
+		log.Printf("Unable to parse capacity: %v\n", err)
+		return err
+	}
+	eventCreateInput.Capacity = capacityInt
+
+	log.Printf("Create event input: %+v\n", eventCreateInput)
+
+	create event
+	event, err := mp.tymujClient.CreateEvent(createEventInput)
+	if err != nil {
+		log.Printf("Unable to create event: %v\n", err)
+		return err
+	}
+
+	// send message
+	mp.messageService.SendMessage("DONE", "")
 
 	return nil
 }
