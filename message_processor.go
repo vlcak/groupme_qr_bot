@@ -446,7 +446,7 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 	}
 
 	rowIndex := 1
-	for row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), "", false); true; {
+	for row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), sheets.FORMATTED_VALUE, false); true; {
 		if err != nil {
 			log.Printf("Unable to read row: %v\n", err)
 			return err
@@ -550,7 +550,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 
 	// parse when
 	now := time.Now()
-	t, err := time.Parse("2006-2.1. 15:04", fmt.Sprintf("%d-%s", now.Year(), date, startTime))
+	t, err := time.Parse("2006-2.1. 15:04", fmt.Sprintf("%d-%s %s", now.Year(), date, startTime))
 	if err != nil {
 		log.Printf("Unable to parse date: %v\n", err)
 		return err

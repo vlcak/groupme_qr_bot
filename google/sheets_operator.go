@@ -16,8 +16,9 @@ const (
 	VIO_USER_ENTERED      = "USER_ENTERED"
 	VRO_FORMULA           = "FORMULA"
 	VRO_UNFORMATTED_VALUE = "UNFORMATTED_VALUE"
+	VRO_FORMATTED_VALUE   = "FORMATTED_VALUE"
 
-	HOSTS = "hosté"
+	HOSTS                 = "hosté"
 )
 
 func NewSheetOperator(ctx context.Context, spreadsheetId string) (*SheetOperator, error) {
