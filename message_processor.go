@@ -447,7 +447,7 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 
 	rowIndex := 1
 	row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), google.VRO_FORMATTED_VALUE, false)
-	for err == nil && len(row) > 0 && row[0] != ""  {
+	for err == nil && len(row) > 0 && row[0] != "" {
 		log.Printf(fmt.Sprintf("GETTING: Sheet1!A%d:%s%d\n", rowIndex, google.ToColumnIndex((5)), rowIndex))
 		if len(row) != 6 {
 			log.Printf("Invalid row length: %d\n", len(row))
@@ -552,7 +552,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	location_currentzone, err := time.LoadLocation("Europe/Prague")
 	if err != nil {
 		fmt.Println("Error:", err)
-		return
+		return err
 	}
 
 	now := time.Now()
@@ -562,7 +562,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 		return err
 	}
 
-	t, err := time.Parse("2006-2.1. 15:04 MST", fmt.Sprintf("%d-%s %s %s", now.Year(), date, startTime, t.In(location_currentzone).Format("MST")))
+	t, err = time.Parse("2006-2.1. 15:04 MST", fmt.Sprintf("%d-%s %s %s", now.Year(), date, startTime, t.In(location_currentzone).Format("MST")))
 	if err != nil {
 		log.Printf("Unable to parse date: %v\n", err)
 		return err
