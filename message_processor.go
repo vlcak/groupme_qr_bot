@@ -135,6 +135,14 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing CREATE_GAMES: %v", err), "")
 		}
+	case "HELP":
+		mp.messageService.SendMessage("Commands:\n"+
+			"QR <amount> <split> <description> - creates QR code for payment\n"+
+			"PAY <amount> - processes latest event\n"+
+			"ADD_ACCOUNT <account> - adds bank account to groupme account\n"+
+			"LINEUP - creates lineup for next game\n"+
+			"CREATE_GAMES <date> - creates games from given spreadsheet\n"+
+			"HELP - prints this message", "")
 	default:
 		log.Printf("Not a command\n")
 		mp.messageService.SendMessage(fmt.Sprintf("Not a command: %s", command), "")
@@ -483,6 +491,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	}
 
 	eventCreateInput := tymuj.EventCreateInput{
+		TeamId:           string(team.Id),
 		IsGame:           oponent != "",
 		Note:             "",
 		SendReminderDays: 3,
