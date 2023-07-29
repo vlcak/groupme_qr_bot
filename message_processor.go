@@ -567,7 +567,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 
 	log.Printf("Create event input: %+v\n", eventCreateInput)
 
-	create event
+	// create event
 	event, err := mp.tymujClient.CreateEvent(createEventInput)
 	if err != nil {
 		log.Printf("Unable to create event: %v\n", err)
