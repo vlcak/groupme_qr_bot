@@ -446,18 +446,12 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 	}
 
 	rowIndex := 1
-	for row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), google.VRO_FORMATTED_VALUE, false); true; {
-		if err != nil {
-			log.Printf("Unable to read row: %v\n", err)
-			return err
-		}
-		if len(row) == 0 || row[0] == "" {
-			break
-		}
-		rowIndex++
+	row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), google.VRO_FORMATTED_VALUE, false)
+	for err == nil && len(row) > 0 && row[0] != ""  {
+		log.Printf(fmt.Sprintf("GETTING: Sheet1!A%d:%s%d\n", rowIndex, google.ToColumnIndex((5)), rowIndex))
 		if len(row) != 6 {
 			log.Printf("Invalid row length: %d\n", len(row))
-			continue
+			break
 		}
 		isAway := false
 		opponent := row[1]
@@ -475,6 +469,12 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 			log.Printf("Unable to create event: %v\n", err)
 			return err
 		}
+		rowIndex++
+		row, err = googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), google.VRO_FORMATTED_VALUE, false)
+	}
+	if err != nil {
+		log.Printf("Unable to read row: %v\n", err)
+		return err
 	}
 	return nil
 }
@@ -559,7 +559,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	if t.Before(now) {
 		t = t.AddDate(1, 0, 0)
 	}
-	t = t.Local()
+	// t = t.Local()
 	length := 60
 	if eventCreateInput.IsGame {
 		length = 75
