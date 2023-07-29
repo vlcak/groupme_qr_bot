@@ -480,6 +480,7 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 }
 
 func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, oponent string, away bool) error {
+	log.Printf("Creating event: where: %s, date: %s, time: %s, capacity: %s, name: %s, opponent %s\n", where, date, startTime, capacity, name, oponent)
 	team, err := mp.tymujClient.GetTeam([]int{}, 0)
 	if err != nil {
 		log.Printf("Unable to get team: %v\n", err)
@@ -550,6 +551,11 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	// parse when
 	now := time.Now()
 	t, err := time.Parse("2006-2.1. 15:04", fmt.Sprintf("%d-%s", now.Year(), date, startTime))
+	if err != nil {
+		log.Printf("Unable to parse date: %v\n", err)
+		return err
+	}
+	log.Printf("Parsed date: %s\n", t)
 	if t.Before(now) {
 		t = t.AddDate(1, 0, 0)
 	}
