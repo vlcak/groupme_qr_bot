@@ -451,7 +451,7 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 			log.Printf("Unable to read row: %v\n", err)
 			return err
 		}
-		if len(row) == 0 {
+		if len(row) == 0 || row[0] == "" {
 			break
 		}
 		rowIndex++
