@@ -568,11 +568,12 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	log.Printf("Create event input: %+v\n", eventCreateInput)
 
 	// create event
-	event, err := mp.tymujClient.CreateEvent(createEventInput)
+	event, err := mp.tymujClient.CreateEvent(eventCreateInput)
 	if err != nil {
 		log.Printf("Unable to create event: %v\n", err)
 		return err
 	}
+	log.Printf("Created event: %+v\n", event)
 
 	// send message
 	mp.messageService.SendMessage("DONE", "")
