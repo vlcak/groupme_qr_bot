@@ -446,7 +446,7 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 	}
 
 	rowIndex := 1
-	for row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), sheets.FORMATTED_VALUE, false); true; {
+	for row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), google.FORMATTED_VALUE, false); true; {
 		if err != nil {
 			log.Printf("Unable to read row: %v\n", err)
 			return err
