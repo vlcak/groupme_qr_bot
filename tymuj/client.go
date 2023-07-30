@@ -48,7 +48,7 @@ type Event struct {
 }
 
 func (e *Event) GetURL() string {
-	return fmt.Sprintf("%s/events/%s", BaseURL, e.Id)
+	return fmt.Sprintf("%sevents/%s", BaseURL, e.Id)
 }
 
 type EventListInput struct {
