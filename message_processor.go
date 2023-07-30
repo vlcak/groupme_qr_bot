@@ -496,8 +496,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 		IsGame:           oponent != "",
 		Note:             "",
 		SendReminderDays: 3,
-		PlayerIDs:        []string{"35988"},
-		// PlayerIDs:        playerIDs,
+		PlayerIDs:        playerIDs,
 	}
 
 	// parse where
