@@ -488,7 +488,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	}
 	playerIDs := []string{}
 	for _, player := range team.Members {
-		playerIDs = append(playerIDs, string(player.Id))
+		playerIDs = append(playerIDs, string(player.UserId))
 	}
 
 	eventCreateInput := tymuj.EventCreateInput{

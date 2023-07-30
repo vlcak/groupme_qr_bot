@@ -56,9 +56,10 @@ type Team struct {
 }
 
 type Member struct {
-	Id    graphql.ID
-	Name  string
-	Karma int
+	Id     graphql.ID
+	UserId graphql.ID
+	Name   string
+	Karma  int
 }
 
 type Location struct {
@@ -179,9 +180,10 @@ func (c *Client) GetTeam(exceptGroups []int, lowestKarma int) (*Team, error) {
 			continue
 		}
 		member := Member{
-			Id:    m.Id,
-			Name:  m.Nickname,
-			Karma: m.Karma,
+			Id:     m.Id,
+			UserId: m.User.Id,
+			Name:   m.Nickname,
+			Karma:  m.Karma,
 		}
 		if member.Karma == 0 {
 			member.Karma = m.User.Karma
