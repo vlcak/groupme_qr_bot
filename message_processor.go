@@ -556,13 +556,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	}
 
 	now := time.Now()
-	t, err := time.Parse("2006-2.1. 15:04", fmt.Sprintf("%d-%s %s", now.Year(), date, startTime))
-	if err != nil {
-		log.Printf("Unable to parse date: %v\n", err)
-		return err
-	}
-
-	t, err = time.Parse("2006-2.1. 15:04 MST", fmt.Sprintf("%d-%s %s %s", now.Year(), date, startTime, t.In(location_currentzone).Format("MST")))
+	t, err := time.ParseInLocation("2006-2.1. 15:04", fmt.Sprintf("%d-%s %s", now.Year(), date, startTime), location_currentzone)
 	if err != nil {
 		log.Printf("Unable to parse date: %v\n", err)
 		return err
