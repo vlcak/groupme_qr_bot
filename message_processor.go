@@ -451,7 +451,7 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 		log.Printf(fmt.Sprintf("GETTING: Sheet1!A%d:%s%d\n", rowIndex, google.ToColumnIndex((5)), rowIndex))
 		if len(row) != 6 {
 			log.Printf("Invalid row length: %d\n", len(row))
-			break
+			return errors.New("Invalid row length")
 		}
 		isAway := false
 		opponent := row[1]

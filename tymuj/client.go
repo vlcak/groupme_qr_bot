@@ -79,7 +79,7 @@ type Location struct {
 }
 
 func (l *Location) Match(location string) bool {
-	normalizedLocation := utils.Normalize(location)
+	normalizedLocation := strings.TrimSpace(utils.Normalize(location))
 	return strings.Contains(utils.Normalize(l.Name), normalizedLocation) || strings.Contains(utils.Normalize(l.Address), normalizedLocation)
 }
 
@@ -89,7 +89,7 @@ type Opponent struct {
 }
 
 func (o *Opponent) Match(opponent string) bool {
-	normalizedOpponent := utils.Normalize(opponent)
+	normalizedOpponent := strings.TrimSpace(utils.Normalize(opponent))
 	return strings.Contains(utils.Normalize(o.Name), normalizedOpponent)
 }
 
