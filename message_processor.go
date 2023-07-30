@@ -596,7 +596,7 @@ func (mp *MessageProcessor) createEvent(where, date, startTime, capacity, name, 
 	log.Printf("Created event: %+v\n", event)
 
 	// send message
-	mp.messageService.SendMessage("DONE", "")
+	mp.messageService.SendMessage(fmt.Sprintf("Event created: %s", event.GetURL()), "")
 
 	return nil
 }

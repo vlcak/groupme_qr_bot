@@ -43,7 +43,7 @@ func NewHandler(
 	h.accountURL = bankClient.GetAccountURL()
 	h.paymentsURL = sheetOperator.GetReadOnlyURL()
 	h.mobilePaymentsURL = sheetOperator.GetReadOnlyURLToSheet(1)
-	h.tymujURL = tymujClient.GetURL()
+	h.tymujURL = tymuj.BaseURL
 	h.handler = http.NewServeMux()
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/message", h.messageReceived))

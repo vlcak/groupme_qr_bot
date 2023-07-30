@@ -17,6 +17,12 @@ import (
 	"time"
 )
 
+const (
+	BaseURL = "https://app.tymuj.cz/"
+	V2URL   = "https://api2.tymuj.cz/graphql"
+	RustURL = "https://rust-api.tymuj.cz/graphql"
+)
+
 type Atendee struct {
 	Id        graphql.ID
 	GroupId   graphql.ID
@@ -39,6 +45,10 @@ type Event struct {
 	AssignCount      int
 	SendReminderDays int
 	Location         string
+}
+
+func (e *Event) GetURL() string {
+	return fmt.Sprintf("%s/events/%s", BaseURL, e.Id)
 }
 
 type EventListInput struct {
@@ -113,15 +123,13 @@ func NewClient(token string, teamId int) *Client {
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
 	return &Client{
-		baseURL:    "https://app.tymuj.cz/",
-		client2:    graphql.NewClient("https://api2.tymuj.cz/graphql", httpClient),
-		clientRust: graphql.NewClient("https://rust-api.tymuj.cz/graphql", httpClient),
+		client2:    graphql.NewClient(V2URL, httpClient),
+		clientRust: graphql.NewClient(RustURL, httpClient),
 		teamId:     teamId,
 	}
 }
 
 type Client struct {
-	baseURL    string
 	client2    *graphql.Client
 	clientRust *graphql.Client
 	teamId     int
@@ -555,10 +563,6 @@ func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
 		SendReminderDays: newEvent.SendReminderDays,
 		Location:         newEvent.Location.Name,
 	}, nil
-}
-
-func (c *Client) GetURL() string {
-	return c.baseURL
 }
 
 func print(v interface{}) {
