@@ -433,7 +433,7 @@ func (mp *MessageProcessor) processLineup() error {
 	mp.messageService.SendMessage(
 		fmt.Sprintf(
 			"Lineup sheet URL: %s",
-			sheetOperator.GetReadOnlyURL), "")
+			sheetOperator.GetReadOnlyURL()), "")
 
 	return nil
 }

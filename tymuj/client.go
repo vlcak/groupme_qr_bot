@@ -146,6 +146,7 @@ type Client struct {
 
 func (c *Client) createClients() error {
 	if c.lastLogin.Add(time.Hour * 24).After(time.Now()) {
+		log.Printf("Login too soon")
 		return errors.New("Login too soon")
 	}
 	var mutation struct {
