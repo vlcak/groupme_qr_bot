@@ -334,7 +334,8 @@ func (mp *MessageProcessor) processLineup() error {
 
 	for _, atendee := range atendees {
 		// get player
-		player, err := mp.db.GetPlayerByName(atendee.Name)
+		name := atendee.Name.TrimSpace().Replace("  ", " ")
+		player, err := mp.db.GetPlayerByName(name)
 		if err != nil {
 			notProcessed = append(notProcessed, atendee.Name)
 			log.Printf("Unable to get player: %s, err:%v\n", atendee.Name, err)
