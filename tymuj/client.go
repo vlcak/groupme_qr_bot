@@ -175,7 +175,6 @@ func (c *Client) createClients() error {
 	}
 
 	token := mutation.UserLogin.Tokens.JWT
-	fmt.Println(token)
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{
 			AccessToken: token,
