@@ -93,6 +93,11 @@ func (o *Opponent) Match(opponent string) bool {
 	return strings.Contains(utils.Normalize(o.Name), normalizedOpponent)
 }
 
+type UserLoginInput struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type EventCreateInput struct {
 	TeamId           string           `json:"teamId"`
 	IsGame           bool             `json:"isGame"`
@@ -114,7 +119,63 @@ type TimeBlockInput struct {
 	AttendanceTime time.Time `json:"attendanceTime,omitempty"`
 }
 
-func NewClient(token string, teamId int) *Client {
+func NewClient(username, password string, teamId int) *Client {
+	client := &Client{
+		userLogin: UserLoginInput{
+			Username: username,
+			Password: password,
+		},
+		teamId:    teamId,
+		lastLogin: time.Now().Add(-1 * time.Hour * 24 * 30),
+	}
+	err := client.createClients()
+	if err != nil {
+		log.Printf("Unable to create clients: %v", err)
+		return nil
+	}
+	return client
+}
+
+type Client struct {
+	client2    *graphql.Client
+	clientRust *graphql.Client
+	teamId     int
+	userLogin  UserLoginInput
+	lastLogin  time.Time
+}
+
+func (c *Client) createClients() error {
+	if c.lastLogin.Add(time.Hour * 24).After(time.Now()) {
+		return errors.New("Login too soon")
+	}
+	var mutation struct {
+		UserLogin struct {
+			Tokens struct {
+				JWT      string
+				Typename string `graphql:"__typename"`
+			}
+			User struct {
+				ID       graphql.ID
+				Username string
+				Typename string `graphql:"__typename"`
+			}
+			Typename string `graphql:"__typename"`
+		} `graphql:"userLogin(data: $data)"`
+	}
+
+	variables := map[string]interface{}{
+		"data": c.userLogin,
+	}
+
+	loginClient := graphql.NewClient(V2URL, nil)
+
+	if err := loginClient.Mutate(context.Background(), &mutation, variables); err != nil {
+		log.Printf("Unable to login: %v", err)
+		return err
+	}
+
+	token := mutation.UserLogin.Tokens.JWT
+	fmt.Println(token)
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{
 			AccessToken: token,
@@ -122,17 +183,9 @@ func NewClient(token string, teamId int) *Client {
 		},
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
-	return &Client{
-		client2:    graphql.NewClient(V2URL, httpClient),
-		clientRust: graphql.NewClient(RustURL, httpClient),
-		teamId:     teamId,
-	}
-}
-
-type Client struct {
-	client2    *graphql.Client
-	clientRust *graphql.Client
-	teamId     int
+	c.client2 = graphql.NewClient(V2URL, httpClient)
+	c.clientRust = graphql.NewClient(RustURL, httpClient)
+	return nil
 }
 
 func (c *Client) GetTeam(exceptGroups []int, lowestKarma int) (*Team, error) {
@@ -167,8 +220,11 @@ func (c *Client) GetTeam(exceptGroups []int, lowestKarma int) (*Team, error) {
 		"teamId": graphql.ToID(c.teamId),
 	}
 	if err := c.client2.Query(context.Background(), &query, variables); err != nil {
-		log.Printf("Unable to query team: %v", err)
-		return nil, err
+		if c.createClients() != nil {
+			log.Printf("Unable to query team: %v", err)
+			return nil, err
+		}
+		return c.GetTeam(exceptGroups, lowestKarma)
 	}
 	sort.Ints(exceptGroups)
 
@@ -266,8 +322,11 @@ func (c *Client) GetEvents(noGoalies, gamesOnly, past, upcoming bool) ([]Event, 
 	now := time.Now()
 	for pageItems > 0 {
 		if err := c.clientRust.Query(context.Background(), &query, variables); err != nil {
-			log.Printf("Unable to query events: %v", err)
-			return nil, err
+			if c.createClients() != nil {
+				log.Printf("Unable to query events: %v", err)
+				return nil, err
+			}
+			return c.GetEvents(noGoalies, gamesOnly, past, upcoming)
 		}
 		pageItems = len(query.Events.Results)
 		pageNumber = pageNumber + 1
@@ -390,8 +449,11 @@ func (c *Client) GetAtendees(id graphql.ID, goingOnly bool, exceptGroups []int) 
 	}
 
 	if err := c.clientRust.Query(context.Background(), &query, variables); err != nil {
-		log.Printf("Unable to query atendees: %v", err)
-		return nil, err
+		if c.createClients() != nil {
+			log.Printf("Unable to query atendees: %v", err)
+			return nil, err
+		}
+		return c.GetAtendees(id, goingOnly, exceptGroups)
 	}
 	var atendees []Atendee
 	for _, a := range query.Event.EventPlayers {
@@ -435,8 +497,11 @@ func (c *Client) GetLocations() ([]Location, error) {
 		"teamId": graphql.ToID(c.teamId),
 	}
 	if err := c.client2.Query(context.Background(), &query, variables); err != nil {
-		log.Printf("Unable to query locations: %v", err)
-		return nil, err
+		if c.createClients() != nil {
+			log.Printf("Unable to query locations: %v", err)
+			return nil, err
+		}
+		return c.GetLocations()
 	}
 
 	locations := []Location{}
@@ -464,8 +529,11 @@ func (c *Client) GetOpponents() ([]Opponent, error) {
 		"teamId": graphql.ToID(c.teamId),
 	}
 	if err := c.client2.Query(context.Background(), &query, variables); err != nil {
-		log.Printf("Unable to query opponents: %v", err)
-		return nil, err
+		if c.createClients() != nil {
+			log.Printf("Unable to query opponents: %v", err)
+			return nil, err
+		}
+		return c.GetOpponents()
 	}
 
 	opponents := []Opponent{}
@@ -520,8 +588,11 @@ func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
 	}
 
 	if err := c.client2.Mutate(context.Background(), &mutation, variables); err != nil {
-		log.Printf("Unable to create event: %v", err)
-		return nil, err
+		if c.createClients() != nil {
+			log.Printf("Unable to create event: %v", err)
+			return nil, err
+		}
+		return c.CreateEvent(eventRequest)
 	}
 
 	if len(mutation.CreateEvent) != 1 {
