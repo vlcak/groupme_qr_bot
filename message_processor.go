@@ -118,11 +118,11 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing ADD_ACCOUNT: %v", err), "")
 		}
 	case "LINEUP":
-		if len(parsedMessage) != 1 {
+		if len(parsedMessage) < 1 {
 			log.Printf("Wrong LINEUP format\n")
 			return nil
 		}
-		err := mp.processLineup()
+		err := mp.processLineup(strings.Join(parsedMessage[1:], " "))
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing LINEUP: %v", err), "")
 		}
@@ -308,7 +308,7 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 	return nil
 }
 
-func (mp *MessageProcessor) processLineup() error {
+func (mp *MessageProcessor) processLineup(captain string) error {
 	events, err := mp.tymujClient.GetEvents(false, true, false, true)
 	if err != nil {
 		log.Printf("Unable to get next game: %v\n", err)
@@ -381,22 +381,26 @@ func (mp *MessageProcessor) processLineup() error {
 	defense := ""
 	goalie := ""
 	for _, player := range players {
+		name = player.Name.String
+		if player.Name.String == captain {
+			name = fmt.Sprintf("%s (C)", name)
+		}
 		switch player.Post.String {
 		case database.FORWARD:
 			i = fwdIndex
-			forward += fmt.Sprintf("%s %d\n", player.Name.String, player.Number.Int64)
+			forward += fmt.Sprintf("%s %d\n", name, player.Number.Int64)
 			fwdIndex++
 		case database.DEFENSE:
 			i = defIndex
-			defense += fmt.Sprintf("%s %d\n", player.Name.String, player.Number.Int64)
+			defense += fmt.Sprintf("%s %d\n", name, player.Number.Int64)
 			defIndex++
 		case database.GOALIE:
 			i = golIndex
-			goalie += fmt.Sprintf("%s %d\n", player.Name.String, player.Number.Int64)
+			goalie += fmt.Sprintf("%s %d\n", name, player.Number.Int64)
 			golIndex++
 		default:
 			log.Printf("Unknown post: %s\n", player.Post.String)
-			unknownPosts = append(unknownPosts, player.Name.String)
+			unknownPosts = append(unknownPosts, name)
 			continue
 		}
 
