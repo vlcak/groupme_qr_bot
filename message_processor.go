@@ -381,7 +381,7 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 	defense := ""
 	goalie := ""
 	for _, player := range players {
-		name = player.Name.String
+		name := player.Name.String
 		if player.Name.String == captain {
 			name = fmt.Sprintf("%s (C)", name)
 		}
