@@ -122,7 +122,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			log.Printf("Wrong LINEUP format\n")
 			return nil
 		}
-		err := mp.processLineup(strings.Join(parsedMessage[1:], " "))
+		err := mp.processLineup(strings.Replace(strings.Join(parsedMessage[1:], " "), "  ", " ", -1))
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing LINEUP: %v", err), "")
 		}
