@@ -209,7 +209,8 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 		return err
 	}
 	// remove hosts & normalize
-	sheetNames := originalSheetNames[:len(originalSheetNames)-1]
+	sheetNames := make(string, len(originalSheetNames) - 1)
+	copy(sheetNames, originalSheetNames)
 	utils.NormalizeArray(sheetNames)
 	remainings, err := mp.sheetOperator.Get("Sheet1!D3:3", "", true)
 	if err != nil {
