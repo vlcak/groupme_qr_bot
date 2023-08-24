@@ -407,7 +407,7 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 		}
 
 		cellAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(column), i)
-		record := []interface{}{player.Name.String, player.Number.Int64}
+		record := []interface{}{name, player.Number.Int64}
 		err = sheetOperator.Write(cellAddress, record)
 		if err != nil {
 			log.Printf("Unable to write to sheet: %v\n", err)
