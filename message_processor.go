@@ -380,9 +380,11 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 	forward := ""
 	defense := ""
 	goalie := ""
+	captainAssigned := false
 	for _, player := range players {
 		name := player.Name.String
 		if player.Name.String == captain {
+			captainAssigned = true
 			name = fmt.Sprintf("%s (C)", name)
 		}
 		switch player.Post.String {
@@ -433,6 +435,13 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 			fmt.Sprintf(
 				"Unknown posts: \n%s",
 				strings.Join(unknownPosts, ", ")), "")
+	}
+
+	if !captainAssigned {
+		mp.messageService.SendMessage(
+			fmt.Sprintf(
+				"Captain not assigned: %s",
+				captain), "")
 	}
 
 	mp.messageService.SendMessage(
