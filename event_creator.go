@@ -31,10 +31,6 @@ func (ec *EventCreator) CreateEvent(where, date, startTime, capacity, name, opon
 	for _, player := range team.Members {
 		playerIDs = append(playerIDs, string(player.UserId))
 	}
-	for _, player := range team.Members {
-		log.Printf("%s %s\n", player.Name, player.UserId)
-	}
-	playerIDs = []string{"35988"}
 
 	eventCreateInput := tymuj.EventCreateInput{
 		TeamId:           string(team.Id),

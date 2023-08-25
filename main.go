@@ -60,8 +60,7 @@ func main() {
 	}
 	c := cron.NewWithLocation(locationPrague)
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
-	// c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateEvent() })
-	c.AddFunc("0 20 17 * * 5", func() { cronWorker.CreateEvent() })
+	c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateEvent() })
 	c.Start()
 	defer c.Stop()
 

@@ -96,6 +96,11 @@ func (cw *CronWorker) CheckNewPayments() {
 
 func (cw *CronWorker) CreateEvent() {
 	log.Printf("Creating event")
+	after, _ := time.Parse("2006-01-02", "2023-09-10")
+	if after.After(time.Now()) {
+		log.Printf("Too early to create event")
+		return
+	}
 	t := time.Now()
 	nextWednesday := t.AddDate(0, 0, 7-int(t.Weekday())+3)
 
