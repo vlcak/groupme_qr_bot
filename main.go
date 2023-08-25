@@ -15,6 +15,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
@@ -52,9 +53,15 @@ func main() {
 	}
 	csobClient := bank.NewCsobClient(*flagAccountNumber, *flagCsobURL, dbClient)
 
-	cronWorker := NewCronWorker(csobClient, sheetOperator, messageService, dbClient)
-	c := cron.New()
+	cronWorker := NewCronWorker(csobClient, sheetOperator, tymujClient, messageService, dbClient)
+	locationPrague, err := time.LoadLocation("Europe/Prague")
+	if err != nil {
+		log.Printf("Error loading timezone:", err)
+	}
+	c := cron.NewWithLocation(locationPrague)
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
+	// c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateEvent() })
+	c.AddFunc("0 20 17 * * 5", func() { cronWorker.CreateEvent() })
 	c.Start()
 	defer c.Stop()
 

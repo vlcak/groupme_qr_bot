@@ -6,14 +6,17 @@ import (
 	"github.com/vlcak/groupme_qr_bot/db"
 	"github.com/vlcak/groupme_qr_bot/google"
 	"github.com/vlcak/groupme_qr_bot/groupme"
+	"github.com/vlcak/groupme_qr_bot/tymuj"
 	"log"
 	"regexp"
+	"time"
 )
 
-func NewCronWorker(csobClient *bank.CsobClient, sheetOperator *google.SheetOperator, messageService *groupme.MessageService, db *database.Client) *CronWorker {
+func NewCronWorker(csobClient *bank.CsobClient, sheetOperator *google.SheetOperator, tymujClient *tymuj.Client, messageService *groupme.MessageService, db *database.Client) *CronWorker {
 	return &CronWorker{
 		csobClient:     csobClient,
 		sheetOperator:  sheetOperator,
+		tymujClient:    tymujClient,
 		messageService: messageService,
 		db:             db,
 	}
@@ -22,6 +25,7 @@ func NewCronWorker(csobClient *bank.CsobClient, sheetOperator *google.SheetOpera
 type CronWorker struct {
 	csobClient     *bank.CsobClient
 	sheetOperator  *google.SheetOperator
+	tymujClient    *tymuj.Client
 	messageService *groupme.MessageService
 	db             *database.Client
 }
@@ -88,4 +92,19 @@ func (cw *CronWorker) CheckNewPayments() {
 			}
 		}
 	}
+}
+
+func (cw *CronWorker) CreateEvent() {
+	log.Printf("Creating event")
+	t := time.Now()
+	nextWednesday := t.AddDate(0, 0, 7-int(t.Weekday())+3)
+
+	eventCreator := NewEventCreator(cw.tymujClient)
+	eventURL, err := eventCreator.CreateEvent("Říčany", nextWednesday.Format("2.1."), "21:00", "12", "Hokej 3v3 Říčany", "", false, []int{GOALIES_GROUP_ID})
+	if err != nil {
+		log.Printf("Can't create event: %v", err)
+		return
+	}
+	log.Printf("Event created: %s", eventURL)
+	cw.messageService.SendMessage(fmt.Sprintf("Event created: %s", eventURL), "")
 }
