@@ -127,3 +127,8 @@ func (c *Client) StorePayment(name, account string, amount, order int, timestamp
 	_, err := c.db.Exec(`INSERT INTO payments (name, account, amount, accounted_order, accounted_at) VALUES ($1, $2, $3, $4, $5)`, name, account, amount, order, timestamp)
 	return err
 }
+
+func (c *Client) MarkPaymentProcessed(order int) error {
+	_, err := c.db.Exec(`UPDATE payments SET processed_at = $2 WHERE accounted_order = $1`, order, time.Now())
+	return err
+}

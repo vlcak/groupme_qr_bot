@@ -71,6 +71,14 @@ func (cw *CronWorker) CheckNewPayments() {
 				err = cw.sheetOperator.Write(cellAddress, newValue)
 				if err != nil {
 					log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
+					cw.messageService.SendMessage(fmt.Sprintf("Can't store new amount cell for payment: %v, %v", payment, err), "")
+					continue
+				}
+				err = cw.db.MarkPaymentProcessed(payment.Order)
+				if err != nil {
+					log.Printf("Can't mark payment as processed: %v, %v", payment, err)
+					cw.messageService.SendMessage(fmt.Sprintf("Can't mark payment as processed: %v, %v", payment, err), "")
+					continue
 				}
 
 				log.Printf("Added %d to %s(%s), account %s, order: %d, resent: %t", payment.Amount, payment.Name, name, payment.AccountNumber, payment.Order, resent)
