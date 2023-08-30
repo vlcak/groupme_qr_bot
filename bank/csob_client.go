@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/vlcak/groupme_qr_bot/db"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
+
+	database "github.com/vlcak/groupme_qr_bot/db"
 )
 
 func NewCsobClient(accountNumber int, bankURL string, db *database.Client) *CsobClient {
@@ -130,7 +131,7 @@ type transaction struct {
 func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, error) {
 	payload := &requestPayments{
 		AccountList: []account{
-			account{
+			{
 				AccountNumberM24: cc.accountNumber,
 			},
 		},
@@ -140,7 +141,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 			PageNumber:  1,
 		},
 		SortList: []sorting{
-			sorting{
+			{
 				Direction: "DESC",
 				Name:      "AccountingOrder",
 				Order:     1,
@@ -163,7 +164,9 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	r.Header.Add("Content-Type", "application/json")
 	r.Header.Add("Referer", fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d)", cc.accountNumber))
 	r.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.35")
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 	response, err := client.Do(r)
 	if err != nil {
 		log.Printf("Error sending bank request: %v\n", err)

@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/vlcak/groupme_qr_bot/bank"
-	"github.com/vlcak/groupme_qr_bot/db"
-	"github.com/vlcak/groupme_qr_bot/google"
-	"github.com/vlcak/groupme_qr_bot/groupme"
-	"github.com/vlcak/groupme_qr_bot/tymuj"
 	"log"
 	"regexp"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/vlcak/groupme_qr_bot/bank"
+	database "github.com/vlcak/groupme_qr_bot/db"
+	"github.com/vlcak/groupme_qr_bot/google"
+	"github.com/vlcak/groupme_qr_bot/groupme"
+	"github.com/vlcak/groupme_qr_bot/tymuj"
 )
 
 func NewCronWorker(csobClient *bank.CsobClient, sheetOperator *google.SheetOperator, tymujClient *tymuj.Client, messageService *groupme.MessageService, db *database.Client) *CronWorker {
@@ -32,9 +34,15 @@ type CronWorker struct {
 
 func (cw *CronWorker) CheckNewPayments() {
 	log.Printf("Checking new payments")
-	payments, err := cw.csobClient.CheckPayments()
+	exponentialBackoff := backoff.NewExponentialBackOff()
+	exponentialBackoff.MaxElapsedTime = 5 * time.Minute
+	payments, err := backoff.RetryNotifyWithData(func() ([]bank.Payment, error) {
+		return cw.csobClient.CheckPayments()
+	}, exponentialBackoff, func(err error, duration time.Duration) {
+		log.Printf("Can't get payments: %v, retrying in %s", err, duration)
+	})
 	if err != nil {
-		log.Printf("Can't get payments: %v", err)
+		log.Printf("Can't get payments: %v, retries exceeded", err)
 		return
 	}
 
