@@ -271,17 +271,37 @@ func (cc *CsobClient) paymentsSinceLastCheckFromFile(lastAccountingOrder int, fi
 		return nil, err
 	}
 
-	var allPayments, payments []Payment
-	err = json.Unmarshal(fileBytes, &allPayments)
+	bankResponse := bankResponse{}
+	err = json.Unmarshal(fileBytes, &bankResponse)
 	if err != nil {
 		log.Printf("Can't unmarshal file: %s, err: %v", fileName, err)
 		return nil, err
 	}
 
-	for _, payment := range allPayments {
-		if payment.Order > lastAccountingOrder {
-			payments = append(payments, payment)
+	var payments []Payment
+	hitLast := false
+	for _, transaction := range bankResponse.AccountedTransaction {
+		if transaction.BaseInfo.AccountingOrder > lastAccountingOrder && transaction.BaseInfo.AccountAmountData.Amount > 0 {
+			payments = append(payments, Payment{
+				Name: transaction.TransactionTypeChoice.DomesticPayment.PartyName,
+				AccountNumber: fmt.Sprintf(
+					"%d/%s",
+					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.AccountNumber,
+					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.BankCode,
+				),
+				Message:   transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
+				Amount:    transaction.BaseInfo.AccountAmountData.Amount,
+				Order:     transaction.BaseInfo.AccountingOrder,
+				Timestamp: time.Unix(transaction.BaseInfo.AccountingDate/1000, 0),
+			})
 		}
+		if transaction.BaseInfo.AccountingOrder <= lastAccountingOrder {
+			hitLast = true
+			break
+		}
+	}
+	if !hitLast {
+		log.Printf("Not all payments checked!")
 	}
 
 	return payments, nil
