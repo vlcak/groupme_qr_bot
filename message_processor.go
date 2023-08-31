@@ -13,7 +13,7 @@ import (
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
-	"github.com/vlcak/groupme_qr_bot/db"
+	database "github.com/vlcak/groupme_qr_bot/db"
 	"github.com/vlcak/groupme_qr_bot/google"
 	"github.com/vlcak/groupme_qr_bot/groupme"
 	"github.com/vlcak/groupme_qr_bot/tymuj"
@@ -187,8 +187,12 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 		eventName = "zapas"
 	}
 	message := fmt.Sprintf("%s %s", eventName, lastEvent.StartTime.Format("2.1."))
-	split := len(atendees)
-	amountSplitted := (amount + split - 1) / split
+	// split := len(atendees)
+	// amountSplitted := (amount + split - 1) / split
+	amountSplitted := 250
+	if lastEvent.IsGame {
+		amountSplitted = 300
+	}
 
 	image, err := mp.paymentGenerator.Generate(message, accountNumber, strconv.Itoa(amountSplitted))
 	if err != nil {
