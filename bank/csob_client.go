@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"time"
 
 	database "github.com/vlcak/groupme_qr_bot/db"
@@ -129,6 +130,45 @@ type transaction struct {
 }
 
 func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		log.Printf("Can't create cookie jar: %v", err)
+		return nil, err
+	}
+	client := &http.Client{
+		Jar:     jar,
+		Timeout: 30 * time.Second,
+	}
+	r, err := http.NewRequest("GET", cc.viewURL, nil)
+	if err != nil {
+		log.Printf("Can't create bank request %v\n", err)
+		return nil, err
+	}
+	r.Header.Add("Accept", "*/*")
+	r.Header.Add("Accept-Encoding", "gzip, deflate, br")
+	r.Header.Add("Accept-Language", "cs")
+	r.Header.Add("Connection", "keep-alive")
+	r.Header.Add("Sec-Fetch-Dest", "document")
+	r.Header.Add("Sec-Fetch-Mode", "navigate")
+	r.Header.Add("Sec-Fetch-Site", "none")
+	r.Header.Add("Sec-Fetch-User", "?1")
+	r.Header.Add("sec-ch-ua", "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Microsoft Edge\";v=\"116\"")
+	r.Header.Add("sec-ch-ua-mobile", "?0")
+	r.Header.Add("sec-ch-ua-platform", "\"Windows\"")
+	r.Header.Add("Upgrade-Insecure-Requests", "1")
+	r.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0")
+	response, err := client.Do(r)
+	if err != nil {
+		log.Printf("Error sending bank request: %v\n", err)
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		log.Printf("Unexpected bank request return code: %d\n", response.StatusCode)
+		log.Printf("Response: %v", response)
+		return nil, errors.New("unexpected bank request return code")
+	}
+
 	payload := &requestPayments{
 		AccountList: []account{
 			{
@@ -155,7 +195,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 		return nil, err
 	}
 
-	r, err := http.NewRequest("POST", cc.url, bytes.NewReader(body))
+	r, err = http.NewRequest("POST", cc.url, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("Can't create bank request %v\n", err)
 		return nil, err
@@ -164,10 +204,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	r.Header.Add("Content-Type", "application/json")
 	r.Header.Add("Referer", fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d)", cc.accountNumber))
 	r.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.35")
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	response, err := client.Do(r)
+	response, err = client.Do(r)
 	if err != nil {
 		log.Printf("Error sending bank request: %v\n", err)
 		return nil, err
