@@ -42,8 +42,12 @@ func (cw *CronWorker) CheckNewPayments() {
 		log.Printf("Can't get payments: %v, retrying in %s", err, duration)
 	})
 	if err != nil {
-		log.Printf("Can't get payments: %v, retries exceeded", err)
-		return
+		log.Printf("Can't get payments: %v, trying file", err)
+		payments, err = cw.csobClient.CheckPaymentsFromFile()
+		if err != nil {
+			log.Printf("Can't get payments from file: %v", err)
+			return
+		}
 	}
 
 	userNames, err := cw.sheetOperator.Get("Sheet1!A1:1", "", false)

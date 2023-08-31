@@ -8,9 +8,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	database "github.com/vlcak/groupme_qr_bot/db"
+)
+
+const (
+	TEMP_TRANSACTIONS_FILE = "transactions.json"
 )
 
 func NewCsobClient(accountNumber int, bankURL string, db *database.Client) *CsobClient {
@@ -46,6 +51,30 @@ func (cc *CsobClient) CheckPayments() ([]Payment, error) {
 	}
 	log.Printf("Getting payments since: %d", previousLastAccountingOrder)
 	payments, err := cc.paymentsSinceLastCheck(previousLastAccountingOrder)
+	if err != nil {
+		log.Printf("Can't get payments: %v", err)
+		return nil, err
+	}
+	// Store payments to DB
+	for _, payment := range payments {
+		err = cc.db.StorePayment(payment.Name, payment.AccountNumber, payment.Amount, payment.Order, payment.Timestamp)
+		if err != nil {
+			log.Printf("Can't store payment: %v", err)
+			return nil, err
+		}
+	}
+
+	return payments, nil
+}
+
+func (cc *CsobClient) CheckPaymentsFromFile() ([]Payment, error) {
+	previousLastAccountingOrder, err := cc.db.GetLastPaymentOrder()
+	if err != nil {
+		log.Printf("Can't get last accounting order: %v", err)
+		return nil, err
+	}
+	log.Printf("Getting payments since: %d", previousLastAccountingOrder)
+	payments, err := cc.paymentsSinceLastCheckFromFile(previousLastAccountingOrder, TEMP_TRANSACTIONS_FILE)
 	if err != nil {
 		log.Printf("Can't get payments: %v", err)
 		return nil, err
@@ -217,6 +246,42 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	}
 	if !hitLast {
 		log.Printf("Not all payments checked!")
+	}
+
+	return payments, nil
+}
+
+func (cc *CsobClient) paymentsSinceLastCheckFromFile(lastAccountingOrder int, fileName string) ([]Payment, error) {
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		log.Printf("File not found: %s", fileName)
+		return nil, err
+	}
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		log.Printf("Can't open file: %s, err: %v", fileName, err)
+		return nil, err
+	}
+	defer os.Remove(fileName)
+	defer file.Close()
+
+	fileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Printf("Can't read file: %s, err: %v", fileName, err)
+		return nil, err
+	}
+
+	var allPayments, payments []Payment
+	err = json.Unmarshal(fileBytes, &allPayments)
+	if err != nil {
+		log.Printf("Can't unmarshal file: %s, err: %v", fileName, err)
+		return nil, err
+	}
+
+	for _, payment := range allPayments {
+		if payment.Order > lastAccountingOrder {
+			payments = append(payments, payment)
+		}
 	}
 
 	return payments, nil
