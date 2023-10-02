@@ -174,7 +174,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	}
 
 	// listen network event
-	pReference := listenForNetworkEvent(taskCtx, 1439)
+	pReference := listenForNetworkEvent(taskCtx, lastAccountingOrder)
 
 	chromedp.Run(taskCtx,
 		network.Enable(),
