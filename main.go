@@ -5,17 +5,18 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/newrelic/go-agent/v3/newrelic"
-	"github.com/robfig/cron"
-	"github.com/vlcak/groupme_qr_bot/bank"
-	"github.com/vlcak/groupme_qr_bot/db"
-	"github.com/vlcak/groupme_qr_bot/google"
-	"github.com/vlcak/groupme_qr_bot/groupme"
-	"github.com/vlcak/groupme_qr_bot/tymuj"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/robfig/cron"
+	"github.com/vlcak/groupme_qr_bot/bank"
+	database "github.com/vlcak/groupme_qr_bot/db"
+	"github.com/vlcak/groupme_qr_bot/google"
+	"github.com/vlcak/groupme_qr_bot/groupme"
+	"github.com/vlcak/groupme_qr_bot/tymuj"
 )
 
 var (
@@ -29,7 +30,6 @@ var (
 	flagTymujTeamID     = flag.Int("tymuj-team-id", 33489, "Tymuj team ID")
 	flagGoogleSheetID   = flag.String("google-sheet-id", "", "Google sheet ID")
 	flagAccountNumber   = flag.Int("account-number", 311396620, "Account number")
-	flagCsobURL         = flag.String("csob-url", "https://www.csob.cz/et-npw-lta-view/api/detail/transactionList", "CSOB transaction list URI")
 	flagNewRelicLicense = flag.String("newrelic-license", "", "NewRelic license")
 	flagDeviceDetector  = flag.String("device-detector-regexes", "regexes", "Folder with device detector regexes")
 )
@@ -51,7 +51,7 @@ func main() {
 	if err != nil {
 		log.Printf("Can't initialize Google sheet client: %v", err)
 	}
-	csobClient := bank.NewCsobClient(*flagAccountNumber, *flagCsobURL, dbClient)
+	csobClient := bank.NewCsobClient(*flagAccountNumber, dbClient)
 
 	cronWorker := NewCronWorker(csobClient, sheetOperator, tymujClient, messageService, dbClient)
 	locationPrague, err := time.LoadLocation("Europe/Prague")

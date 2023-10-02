@@ -1,15 +1,18 @@
 package bank
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
+	"sort"
 	"time"
+
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/chromedp"
 
 	database "github.com/vlcak/groupme_qr_bot/db"
 )
@@ -18,10 +21,10 @@ const (
 	TEMP_TRANSACTIONS_FILE = "transactions.json"
 )
 
-func NewCsobClient(accountNumber int, bankURL string, db *database.Client) *CsobClient {
+func NewCsobClient(accountNumber int, db *database.Client) *CsobClient {
 	return &CsobClient{
 		accountNumber: accountNumber,
-		url:           bankURL,
+		url:           fmt.Sprintf("https://csob.cz/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d", accountNumber),
 		db:            db,
 		viewURL:       fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d", accountNumber),
 	}
@@ -95,32 +98,13 @@ func (cc *CsobClient) GetAccountURL() string {
 	return cc.viewURL
 }
 
-type account struct {
-	AccountNumberM24 int `json:"accountNumberM24"`
-}
-
-type filter struct {
-	Name      string   `json:"name"`
-	Operator  string   `json:"operator"`
-	ValueList []string `json:"valueList"`
-}
-
-type paging struct {
-	PageNumber  int `json:"pageNumber"`
-	RowsPerPage int `json:"rowsPerPage"`
-}
-
-type sorting struct {
-	Direction string `json:"direction"`
-	Name      string `json:"name"`
-	Order     int    `json:"order"`
-}
-
-type requestPayments struct {
-	AccountList []account `json:"accountList"`
-	FilterList  []filter  `json:"filterList"`
-	Paging      paging    `json:"paging"`
-	SortList    []sorting `json:"sortList"`
+func (cc *CsobClient) PaymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, error) {
+	payments, err := cc.paymentsSinceLastCheck(lastAccountingOrder)
+	if err != nil {
+		log.Printf("Can't get payments: %v", err)
+		return nil, err
+	}
+	return payments, nil
 }
 
 type bankResponse struct {
@@ -139,7 +123,7 @@ type transaction struct {
 			CurrencyCode string
 		}
 		AccountingOrder int
-		AccountingDate  int64
+		AccountingDate  string
 	}
 	TransactionTypeChoice struct {
 		DomesticPayment struct {
@@ -158,97 +142,118 @@ type transaction struct {
 }
 
 func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment, error) {
-	payload := &requestPayments{
-		AccountList: []account{
-			{
-				AccountNumberM24: cc.accountNumber,
-			},
-		},
-		FilterList: []filter{},
-		Paging: paging{
-			RowsPerPage: 20,
-			PageNumber:  1,
-		},
-		SortList: []sorting{
-			{
-				Direction: "DESC",
-				Name:      "AccountingOrder",
-				Order:     1,
-			},
-		},
-	}
-
-	body, err := json.Marshal(payload)
+	dir, err := os.MkdirTemp("", "csob")
 	if err != nil {
-		log.Printf("Can't marshal bank account request payload: %v", err)
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.DisableGPU,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.Flag("headless", false),
+		chromedp.Flag("ignore-certificate-errors", true),
+		chromedp.Flag("window-size", "50,400"),
+		chromedp.UserDataDir(dir),
+	)
+
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	// also set up a custom logger
+	taskCtx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
+	defer cancel()
+
+	// create a timeout
+	taskCtx, cancel = context.WithTimeout(taskCtx, 10*time.Second)
+	defer cancel()
+
+	// ensure that the browser process is started
+	if err := chromedp.Run(taskCtx); err != nil {
 		return nil, err
 	}
 
-	r, err := http.NewRequest("POST", cc.url, bytes.NewReader(body))
-	if err != nil {
-		log.Printf("Can't create bank request %v\n", err)
-		return nil, err
-	}
-	r.Header.Add("Accept", "application/json, text/plain, */*")
-	r.Header.Add("Content-Type", "application/json")
-	r.Header.Add("Referer", fmt.Sprintf("https://www.csob.cz/portal/firmy/bezne-ucty/transparentni-ucty/ucet?account=%d)", cc.accountNumber))
-	r.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.35")
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	response, err := client.Do(r)
-	if err != nil {
-		log.Printf("Error sending bank request: %v\n", err)
-		return nil, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		log.Printf("Unexpected bank request return code: %d\n", response.StatusCode)
-		log.Printf("Response: %v", response)
-		return nil, errors.New("unexpected bank request return code")
-	}
+	// listen network event
+	pReference := listenForNetworkEvent(taskCtx, 1439)
 
-	body, err = ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Printf("Can't read bank response body: %v\n", err)
-		return nil, err
-	}
+	chromedp.Run(taskCtx,
+		network.Enable(),
+		chromedp.Navigate(cc.url),
+		chromedp.Sleep(10*time.Second),
+		chromedp.WaitVisible(`body`, chromedp.BySearch),
+	)
 
-	bankResponse := bankResponse{}
+	payments := *pReference
 
-	err = json.Unmarshal(body, &bankResponse)
-	if err != nil {
-		log.Printf("Can't unmarshal bank response body: %v\nbody: %v", err, string(body))
-		return nil, err
-	}
-	// print(bankResponse)
+	sort.Slice(payments, func(i, j int) bool {
+		return payments[i].Order < payments[j].Order
+	})
+
+	return payments, nil
+}
+
+func listenForNetworkEvent(ctx context.Context, lastAccountingOrder int) *[]Payment {
 	var payments []Payment
-	hitLast := false
-	for _, transaction := range bankResponse.AccountedTransaction {
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		switch ev := ev.(type) {
+
+		case *network.EventResponseReceived:
+			resp := ev.Response
+			if len(resp.Headers) != 0 {
+				if resp.Headers["Content-Type"] != "application/json" {
+					return
+				}
+			}
+			go func() {
+				c := chromedp.FromContext(ctx)
+				rbp := network.GetResponseBody(ev.RequestID)
+				body, err := rbp.Do(cdp.WithExecutor(ctx, c.Target))
+				if err != nil {
+					return
+				}
+				bankResponse := bankResponse{}
+
+				err = json.Unmarshal(body, &bankResponse)
+				if err != nil {
+					log.Printf("Can't unmarshal bank response body: %v\nbody: %v", err, string(body))
+					return
+				}
+
+				if bankResponse.Paging.PageNumber > 0 {
+					payments = append(payments, processTransactions(bankResponse.AccountedTransaction, lastAccountingOrder)...)
+				}
+			}()
+		}
+	})
+	return &payments
+}
+
+func processTransactions(transactions []transaction, lastAccountingOrder int) []Payment {
+	var payments []Payment
+	for _, transaction := range transactions {
 		if transaction.BaseInfo.AccountingOrder > lastAccountingOrder && transaction.BaseInfo.AccountAmountData.Amount > 0 {
-			payments = append(payments, Payment{
+			var accountingDate time.Time
+			p := Payment{
 				Name: transaction.TransactionTypeChoice.DomesticPayment.PartyName,
 				AccountNumber: fmt.Sprintf(
 					"%d/%s",
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.AccountNumber,
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.BankCode,
 				),
-				Message:   transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
-				Amount:    transaction.BaseInfo.AccountAmountData.Amount,
-				Order:     transaction.BaseInfo.AccountingOrder,
-				Timestamp: time.Unix(transaction.BaseInfo.AccountingDate/1000, 0),
-			})
-		}
-		if transaction.BaseInfo.AccountingOrder <= lastAccountingOrder {
-			hitLast = true
-			break
+				Message: transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
+				Amount:  transaction.BaseInfo.AccountAmountData.Amount,
+				Order:   transaction.BaseInfo.AccountingOrder,
+			}
+			accountingDate, err := time.Parse("2006-01-02T15:04:05.000Z", transaction.BaseInfo.AccountingDate)
+			if err != nil {
+				log.Printf("Can't parse accounting date: %v", err)
+				accountingDate = time.Now()
+			}
+			p.Timestamp = accountingDate
+			payments = append(payments, p)
 		}
 	}
-	if !hitLast {
-		log.Printf("Not all payments checked!")
-	}
-
-	return payments, nil
+	return payments
 }
 
 func (cc *CsobClient) paymentsSinceLastCheckFromFile(lastAccountingOrder int, fileName string) ([]Payment, error) {
@@ -278,31 +283,7 @@ func (cc *CsobClient) paymentsSinceLastCheckFromFile(lastAccountingOrder int, fi
 		return nil, err
 	}
 
-	var payments []Payment
-	hitLast := false
-	for _, transaction := range bankResponse.AccountedTransaction {
-		if transaction.BaseInfo.AccountingOrder > lastAccountingOrder && transaction.BaseInfo.AccountAmountData.Amount > 0 {
-			payments = append(payments, Payment{
-				Name: transaction.TransactionTypeChoice.DomesticPayment.PartyName,
-				AccountNumber: fmt.Sprintf(
-					"%d/%s",
-					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.AccountNumber,
-					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.BankCode,
-				),
-				Message:   transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
-				Amount:    transaction.BaseInfo.AccountAmountData.Amount,
-				Order:     transaction.BaseInfo.AccountingOrder,
-				Timestamp: time.Unix(transaction.BaseInfo.AccountingDate/1000, 0),
-			})
-		}
-		if transaction.BaseInfo.AccountingOrder <= lastAccountingOrder {
-			hitLast = true
-			break
-		}
-	}
-	if !hitLast {
-		log.Printf("Not all payments checked!")
-	}
+	payments := processTransactions(bankResponse.AccountedTransaction, lastAccountingOrder)
 
 	return payments, nil
 }
