@@ -151,7 +151,7 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.DisableGPU,
 		chromedp.NoDefaultBrowserCheck,
-		chromedp.Flag("headless", false),
+		chromedp.Flag("headless", true),
 		chromedp.Flag("ignore-certificate-errors", true),
 		chromedp.Flag("window-size", "50,400"),
 		chromedp.UserDataDir(dir),
