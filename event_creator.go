@@ -105,16 +105,17 @@ func (ec *EventCreator) CreateEvent(where, date, startTime, capacity, name, opon
 	if t.Before(now) {
 		t = t.AddDate(1, 0, 0)
 	}
-	// t = t.Local()
 	length := 60
+	attendance := -24
 	if eventCreateInput.IsGame {
 		length = 75
+		attendance = -48
 	}
 	timeBlock := tymuj.TimeBlockInput{
 		StartTime:      t,
 		EndTime:        t.Add(time.Minute * time.Duration(length)),
 		PlannedTime:    t.Add(time.Minute * -30),
-		AttendanceTime: t.Add(time.Hour * -48),
+		AttendanceTime: t.Add(time.Hour * time.Duration(attendance)),
 	}
 	eventCreateInput.TimeBlocks = []tymuj.TimeBlockInput{timeBlock}
 
