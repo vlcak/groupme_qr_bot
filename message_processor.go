@@ -190,7 +190,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	// split := len(atendees)
 	// amountSplitted := (amount + split - 1) / split
 	amountSplitted := 250
-	if lastEvent.IsGame {
+	if lastEvent.IsGame || lastEvent.Capacity > 12 {
 		amountSplitted = 300
 	}
 
