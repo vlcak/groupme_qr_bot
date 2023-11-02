@@ -125,7 +125,7 @@ func (cw *CronWorker) CreateEvent() {
 	nextWednesday := t.AddDate(0, 0, 7-int(t.Weekday())+3)
 
 	eventCreator := NewEventCreator(cw.tymujClient)
-	eventURL, err := eventCreator.CreateEvent("Říčany", nextWednesday.Format("2.1."), "21:00", "12", "Hokej 3v3 Říčany", "", false, []int{GOALIES_GROUP_ID})
+	eventURL, err := eventCreator.CreateEvent("Říčany", nextWednesday.Format("2.1."), "21:00", "12", "Hokej 3v3 Říčany - hráči", "", false, []int{})
 	if err != nil {
 		log.Printf("Can't create event: %v", err)
 		return
