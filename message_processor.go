@@ -383,13 +383,13 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 		return err
 	}
 
-	bTeamNameAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(column), 1)
+	bTeamNameAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(column-1), 1)
 	err = sheetOperator.Write(bTeamNameAddress, []interface{}{strings.ToUpper(TEAM_NAME)})
 	if err != nil {
 		log.Printf("Unable to write to sheet: %v\n", err)
 		return err
 	}
-	opponentTeamNameAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(opponentColumn), 1)
+	opponentTeamNameAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(opponentColumn-1), 1)
 	err = sheetOperator.Write(opponentTeamNameAddress, []interface{}{strings.ToUpper(lastEvent.OpponentName)})
 	if err != nil {
 		log.Printf("Unable to write to sheet: %v\n", err)
