@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	graphql "github.com/hasura/go-graphql-client"
-	"github.com/vlcak/groupme_qr_bot/utils"
-	"golang.org/x/exp/slices"
-	"golang.org/x/oauth2"
 	"log"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	graphql "github.com/hasura/go-graphql-client"
+	"github.com/vlcak/groupme_qr_bot/utils"
+	"golang.org/x/exp/slices"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -45,6 +46,7 @@ type Event struct {
 	AssignCount      int
 	SendReminderDays int
 	Location         string
+	OpponentName     string
 }
 
 func (e *Event) GetURL() string {
@@ -355,7 +357,9 @@ func (c *Client) GetEvents(noGoalies, gamesOnly, past, upcoming bool) ([]Event, 
 			attendanceParsedTime, _ := time.Parse(time.RFC3339, e.AttendanceTime)
 
 			name := e.Name
+			opponentName := ""
 			if e.IsGame {
+				opponentName = e.Opponent.Name
 				if e.IsAway {
 					name = fmt.Sprintf("%s vs %s", e.Opponent.Name, e.Team.Name)
 				} else {
@@ -377,6 +381,7 @@ func (c *Client) GetEvents(noGoalies, gamesOnly, past, upcoming bool) ([]Event, 
 				AssignCount:      e.AssignCount,
 				SendReminderDays: e.SendReminderDays,
 				Location:         e.Location.Name,
+				OpponentName:     opponentName,
 			})
 		}
 		query.Events.Results = nil
@@ -611,7 +616,9 @@ func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
 	attendanceParsedTime, _ := time.Parse(time.RFC3339, newEvent.AttendanceTime)
 
 	name := newEvent.Name
+	opponentName := ""
 	if newEvent.IsGame {
+		opponentName = newEvent.Opponent.Name
 		if newEvent.IsAway {
 			name = fmt.Sprintf("%s vs %s", newEvent.Opponent.Name, newEvent.Team.Name)
 		} else {
@@ -633,6 +640,7 @@ func (c *Client) CreateEvent(eventRequest EventCreateInput) (*Event, error) {
 		AssignCount:      newEvent.AssignCount,
 		SendReminderDays: newEvent.SendReminderDays,
 		Location:         newEvent.Location.Name,
+		OpponentName:     opponentName,
 	}, nil
 }
 

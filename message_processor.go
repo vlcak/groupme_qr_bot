@@ -368,8 +368,10 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 	}
 
 	column := google.HOME_COL
+	opponentColumn := google.AWAY_COL
 	if lastEvent.IsAway {
 		column = google.AWAY_COL
+		opponentColumn = google.HOME_COL
 	}
 	fwdIndex := google.FWD_ROW
 	defIndex := google.DEF_ROW
@@ -378,6 +380,19 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 	sheetOperator, err := google.NewSheetOperator(context.Background(), newLineup.Id)
 	if err != nil {
 		log.Printf("Unable to create sheet operator: %v\n", err)
+		return err
+	}
+
+	bTeamNameAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(column), 1)
+	err = sheetOperator.Write(bTeamNameAddress, []interface{}{strings.ToUpper(TEAM_NAME)})
+	if err != nil {
+		log.Printf("Unable to write to sheet: %v\n", err)
+		return err
+	}
+	opponentTeamNameAddress := fmt.Sprintf("Sheet1!%s%d", google.ToColumnIndex(opponentColumn), 1)
+	err = sheetOperator.Write(opponentTeamNameAddress, []interface{}{strings.ToUpper(lastEvent.OpponentName)})
+	if err != nil {
+		log.Printf("Unable to write to sheet: %v\n", err)
 		return err
 	}
 

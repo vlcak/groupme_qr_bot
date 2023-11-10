@@ -2,16 +2,17 @@ package google
 
 import (
 	"context"
+	"log"
+
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
-	"log"
 )
 
 const (
-	LINEUP_TEMPLATE_ID = "11m9Gh30hFEcThyhDO4z3zyj2mJnWYm6Gf8ojyi7HxUY"
+	LINEUP_TEMPLATE_ID = "1NXmU55pK5NMAmQ6naDyb3HRFcPRxnQ2NKPJGBopvZp8"
 	FWD_ROW            = 3
-	DEF_ROW            = 16
-	GOL_ROW            = 26
+	DEF_ROW            = 14
+	GOL_ROW            = 21
 	HOME_COL           = 1
 	AWAY_COL           = 7
 )
