@@ -23,6 +23,7 @@ import (
 
 const (
 	GOALIES_GROUP_ID = 2662
+	PLAYERS_GROUP_ID = 2663
 	TEAM_NAME        = "B-Tým"
 )
 
@@ -173,7 +174,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	if err != nil || accountNumber == "" {
 		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
-		return errors.New("Unknown sender")
+		return errors.New("unknown sender")
 	}
 
 	amount, err := strconv.Atoi(amoutStr)
@@ -281,7 +282,7 @@ func (mp *MessageProcessor) createPayment(senderId, amoutStr, splitStr, message 
 	if err != nil || accountNumber == "" {
 		log.Printf("Unknown sender\n")
 		mp.messageService.SendMessage("I don't know your account", "")
-		return errors.New("Unknown sender")
+		return errors.New("unknown sender")
 	}
 
 	amount, err := strconv.Atoi(amoutStr)
@@ -320,7 +321,7 @@ func (mp *MessageProcessor) processLineup(captain string) error {
 	}
 	if len(events) == 0 {
 		log.Printf("No future games found\n")
-		return errors.New("No future games found")
+		return errors.New("no future games found")
 	}
 
 	// get oldest event
@@ -481,10 +482,10 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 	rowIndex := 1
 	row, err := googleSheetOperator.Get(fmt.Sprintf("Sheet1!A%d:%s%d", rowIndex, google.ToColumnIndex((5)), rowIndex), google.VRO_FORMATTED_VALUE, false)
 	for err == nil && len(row) > 0 && row[0] != "" {
-		log.Printf(fmt.Sprintf("GETTING: Sheet1!A%d:%s%d\n", rowIndex, google.ToColumnIndex((5)), rowIndex))
+		log.Printf("GETTING: Sheet1!A%d:%s%d\n", rowIndex, google.ToColumnIndex(5), rowIndex)
 		if len(row) != 6 {
 			log.Printf("Invalid row length: %d\n", len(row))
-			return errors.New("Invalid row length")
+			return errors.New("invalid row length")
 		}
 		isAway := false
 		opponent := row[1]

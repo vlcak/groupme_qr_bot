@@ -41,12 +41,18 @@ func main() {
 		newrelic.ConfigLicense(*flagNewRelicLicense),
 		newrelic.ConfigAppLogForwardingEnabled(true),
 	)
+	if err != nil {
+		log.Printf("Can't initialize NewRelic: %v", err)
+	}
 	imageService := groupme.NewImageService(*flagUserToken)
 	messageService := groupme.NewMessageService(*flagBotToken)
 	tymujClient := tymuj.NewClient(*flagTymujLogin, *flagTymujPassword, *flagTymujTeamID)
 	dbClient := database.NewClient(*flagDbURL)
 	ctx := context.Background()
 	sheetOperator, err := google.NewSheetOperator(ctx, *flagGoogleSheetID)
+	if err != nil {
+		log.Printf("Can't initialize Google sheet client: %v", err)
+	}
 	driveOperator, err := google.NewDriveOperator(ctx)
 	if err != nil {
 		log.Printf("Can't initialize Google sheet client: %v", err)
@@ -60,7 +66,8 @@ func main() {
 	}
 	c := cron.NewWithLocation(locationPrague)
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
-	c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateEvent() })
+	c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateWednesdayEventForPlayers() })
+	c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateWednesdayEventForGoalies() })
 	c.Start()
 	defer c.Stop()
 

@@ -114,8 +114,8 @@ func (cw *CronWorker) CheckNewPayments() {
 	}
 }
 
-func (cw *CronWorker) CreateEvent() {
-	log.Printf("Creating event")
+func (cw *CronWorker) CreateWednesdayEventForPlayers() {
+	log.Printf("Creating players event")
 	after, _ := time.Parse("2006-01-02", "2023-09-10")
 	if after.After(time.Now()) {
 		log.Printf("Too early to create event")
@@ -126,6 +126,26 @@ func (cw *CronWorker) CreateEvent() {
 
 	eventCreator := NewEventCreator(cw.tymujClient)
 	eventURL, err := eventCreator.CreateEvent("Kateřinky", nextWednesday.Format("2.1."), "21:00", "16", "Hokej 4v4 Kateřinky - hráči", "", false, []int{})
+	if err != nil {
+		log.Printf("Can't create event: %v", err)
+		return
+	}
+	log.Printf("Event created: %s", eventURL)
+	cw.messageService.SendMessage(fmt.Sprintf("Event created: %s", eventURL), "")
+}
+
+func (cw *CronWorker) CreateWednesdayEventForGoalies() {
+	log.Printf("Creating goalies event")
+	after, _ := time.Parse("2006-01-02", "2023-09-10")
+	if after.After(time.Now()) {
+		log.Printf("Too early to create event")
+		return
+	}
+	t := time.Now()
+	nextWednesday := t.AddDate(0, 0, 7-int(t.Weekday())+3)
+
+	eventCreator := NewEventCreator(cw.tymujClient)
+	eventURL, err := eventCreator.CreateEvent("Kateřinky", nextWednesday.Format("2.1."), "21:00", "2", "Hokej 4v4 Kateřinky - gólmani", "", false, []int{PLAYERS_GROUP_ID})
 	if err != nil {
 		log.Printf("Can't create event: %v", err)
 		return
