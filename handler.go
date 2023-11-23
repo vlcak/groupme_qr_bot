@@ -1,17 +1,18 @@
 package main
 
 import (
+	"io"
+	"log"
+	"net/http"
+
 	"github.com/gamebtc/devicedetector"
 	"github.com/gamebtc/devicedetector/parser"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/vlcak/groupme_qr_bot/bank"
-	"github.com/vlcak/groupme_qr_bot/db"
+	database "github.com/vlcak/groupme_qr_bot/db"
 	"github.com/vlcak/groupme_qr_bot/google"
 	"github.com/vlcak/groupme_qr_bot/groupme"
 	"github.com/vlcak/groupme_qr_bot/tymuj"
-	"io"
-	"log"
-	"net/http"
 )
 
 type Handler struct {
@@ -48,8 +49,8 @@ func NewHandler(
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/", h.getRoot))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/message", h.messageReceived))
 	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/platby", h.redirectToPaymetns))
-	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/tymuj", h.messageReceived))
-	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/ucet", h.messageReceived))
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/tymuj", h.redirectToTymuj))
+	h.handler.HandleFunc(newrelic.WrapHandleFunc(newRelicApp, "/ucet", h.redirectToAccount))
 	var err error
 	h.deviceDetector, err = devicedetector.NewDeviceDetector(deviceDetectorRegexes)
 	if err != nil {
@@ -68,15 +69,19 @@ func (h *Handler) getRoot(w http.ResponseWriter, r *http.Request) {
 	switch r.Host {
 	case "platby.b-tym.cz":
 		if deviceInfo != nil && deviceInfo.IsMobile() {
+			log.Printf("Got PAYMENTS request from MOBILE\n")
 			http.Redirect(w, r, h.mobilePaymentsURL, http.StatusFound)
 		} else {
+			log.Printf("Got PAYMENTS request from NON-MOBILE\n")
 			http.Redirect(w, r, h.paymentsURL, http.StatusFound)
 		}
 		return
 	case "tymuj.b-tym.cz":
+		log.Printf("Got TYMUJ request\n")
 		http.Redirect(w, r, h.tymujURL, http.StatusFound)
 		return
 	case "ucet.b-tym.cz":
+		log.Printf("Got ACCOUNT request\n")
 		http.Redirect(w, r, h.accountURL, http.StatusFound)
 		return
 	}
@@ -96,7 +101,18 @@ func (h *Handler) redirectToAccount(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) redirectToPaymetns(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got PAYMENTS request\n")
-	http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+	var deviceInfo *devicedetector.DeviceInfo
+	if h.deviceDetector != nil {
+		deviceInfo = h.deviceDetector.Parse(r.UserAgent())
+		log.Printf("Device type: %s, bot: %t", parser.GetDeviceName(deviceInfo.GetDeviceType()), deviceInfo.IsBot())
+	}
+	if deviceInfo != nil && deviceInfo.IsMobile() {
+		log.Printf("Got PAYMENTS request from MOBILE\n")
+		http.Redirect(w, r, h.mobilePaymentsURL, http.StatusFound)
+	} else {
+		log.Printf("Got PAYMENTS request from NON-MOBILE\n")
+		http.Redirect(w, r, h.paymentsURL, http.StatusFound)
+	}
 }
 
 func (h *Handler) redirectToTymuj(w http.ResponseWriter, r *http.Request) {

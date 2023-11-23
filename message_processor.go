@@ -93,6 +93,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	case "QR":
 		if len(parsedMessage) != 4 {
 			log.Printf("Wrong QR format\n")
+			mp.messageService.SendMessage("Wrong QR format", "")
 			return nil
 		}
 		err := mp.createPayment(m.SenderId, strings.TrimSpace(parsedMessage[1]), strings.TrimSpace(parsedMessage[2]), parsedMessage[3])
@@ -100,17 +101,23 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing QR: %v", err), "")
 		}
 	case "PAY":
-		if len(parsedMessage) != 2 {
+		if len(parsedMessage) >= 2 && len(parsedMessage) <= 3 {
 			log.Printf("Wrong PAY format\n")
+			mp.messageService.SendMessage("Wrong PAY format", "")
 			return nil
 		}
-		err := mp.processEvent(m.SenderId, strings.TrimSpace(parsedMessage[1]))
+		userAmount := ""
+		if len(parsedMessage) == 3 {
+			userAmount = strings.TrimSpace(parsedMessage[2])
+		}
+		err := mp.processEvent(m.SenderId, strings.TrimSpace(parsedMessage[1]), userAmount)
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing PAY: %v", err), "")
 		}
 	case "ADD_ACCOUNT":
 		if len(parsedMessage) != 2 {
 			log.Printf("Wrong ADD_ACCOUNT format\n")
+			mp.messageService.SendMessage("Wrong ADD_ACCOUNT format", "")
 			return nil
 		}
 		err := mp.db.SetGroupmeAccount(m.SenderId, strings.TrimSpace(parsedMessage[1]))
@@ -120,6 +127,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	case "LINEUP":
 		if len(parsedMessage) < 1 {
 			log.Printf("Wrong LINEUP format\n")
+			mp.messageService.SendMessage("Wrong LINEUP format", "")
 			return nil
 		}
 		err := mp.processLineup(strings.Replace(strings.Join(parsedMessage[1:], " "), "  ", " ", -1))
@@ -129,6 +137,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	case "CREATE_GAMES":
 		if len(parsedMessage) != 2 {
 			log.Printf("Wrong CREATE_GAMES format\n")
+			mp.messageService.SendMessage("Wrong CREATE_GAMES format", "")
 			return nil
 		}
 		err := mp.createGames(strings.TrimSpace(parsedMessage[1]))
@@ -138,7 +147,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	case "HELP":
 		mp.messageService.SendMessage("Commands:\n"+
 			"QR <amount> <split> <description> - creates QR code for payment\n"+
-			"PAY <amount> - processes latest event\n"+
+			"PAY <amount> ?<perUser> - processes latest event\n"+
 			"ADD_ACCOUNT <account> - adds bank account to groupme account\n"+
 			"LINEUP - creates lineup for next game\n"+
 			"CREATE_GAMES <date> - creates games from given spreadsheet\n"+
@@ -151,7 +160,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 	return nil
 }
 
-func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
+func (mp *MessageProcessor) processEvent(senderId, amoutStr, perUserAmount string) error {
 	events, err := mp.tymujClient.GetEvents(true, false, true, false)
 	if err != nil {
 		log.Printf("Unable to get events: %v\n", err)
@@ -191,7 +200,13 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr string) error {
 	// split := len(atendees)
 	// amountSplitted := (amount + split - 1) / split
 	amountSplitted := 250
-	if lastEvent.IsGame || lastEvent.Capacity > 12 {
+	if perUserAmount != "" {
+		amountSplitted, err = strconv.Atoi(perUserAmount)
+		if err != nil {
+			log.Printf("Cant parse per user amount %v\n", err)
+			return err
+		}
+	} else if lastEvent.IsGame || lastEvent.Capacity > 12 {
 		amountSplitted = 300
 	}
 
