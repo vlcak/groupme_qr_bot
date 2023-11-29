@@ -101,7 +101,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing QR: %v", err), "")
 		}
 	case "PAY":
-		if len(parsedMessage) >= 2 && len(parsedMessage) <= 3 {
+		if len(parsedMessage) < 2 || len(parsedMessage) > 3 {
 			log.Printf("Wrong PAY format\n")
 			mp.messageService.SendMessage("Wrong PAY format", "")
 			return nil
