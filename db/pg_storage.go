@@ -3,10 +3,11 @@ package database
 import (
 	"database/sql"
 	"errors"
-	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"log"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 const (
@@ -67,6 +68,7 @@ type BankAccount struct {
 type Payment struct {
 	Account sql.NullString `db:"account" json:"account"`
 	Name    sql.NullString `db:"name" json:"name"`
+	Amount  sql.NullInt64  `db:"amount" json:"amount"`
 }
 
 func (c *Client) GetGroupmeAccount(userID string) (string, error) {
@@ -131,4 +133,30 @@ func (c *Client) StorePayment(name, account string, amount, order int, timestamp
 func (c *Client) MarkPaymentProcessed(order int) error {
 	_, err := c.db.Exec(`UPDATE payments SET processed_at = $2 WHERE accounted_order = $1`, order, time.Now())
 	return err
+}
+
+func (c *Client) GetUnprocessedPayments() ([]Payment, error) {
+	var payments []Payment
+	if err := c.db.Select(&payments, `SELECT name, account, amount FROM payments WHERE processed_at IS NULL ORDER BY accounted_order ASC`); err != nil {
+		log.Printf("DB query error %v\n", err)
+		return payments, err
+	}
+	return payments, nil
+}
+
+func (c *Client) StoreScheduleException(date, time string) error {
+	_, err := c.db.Exec(`INSERT INTO schedule_exceptions (id, date, time) VALUES (nextval('schedule_exceptions_id_seq'), $1, $2)`, date, time)
+	if err != nil {
+		log.Printf("DB query error %v\n", err)
+	}
+	return err
+}
+
+func (c *Client) IsException(date, time string) (bool, error) {
+	var count int
+	if err := c.db.Get(&count, `SELECT COUNT(*) FROM schedule_exceptions WHERE (date = $1 AND time = $2) OR (date = $1 AND time = '')`, date, time); err != nil {
+		log.Printf("DB query error %v\n", err)
+		return false, err
+	}
+	return count > 0, nil
 }

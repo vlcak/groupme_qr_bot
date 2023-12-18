@@ -114,6 +114,26 @@ func (cw *CronWorker) CheckNewPayments() {
 	}
 }
 
+func (cw *CronWorker) CheckUnprocessedPayments() {
+	log.Printf("Checking unprocessed payments")
+	payments, err := cw.db.GetUnprocessedPayments()
+	if err != nil {
+		log.Printf("Can't get unprocessed payments: %v", err)
+		return
+	}
+
+	for _, payment := range payments {
+		log.Printf("Unprocessed payment - name: %s, account: %s, amount: %d", payment.Name.String, payment.Account.String, payment.Amount.Int64)
+		cw.messageService.SendMessage(
+			fmt.Sprintf(
+				"Unprocessed payment - name: %s, account: %s, amount: %d",
+				payment.Name.String,
+				payment.Account.String,
+				payment.Amount.Int64),
+			"")
+	}
+}
+
 func (cw *CronWorker) CreateWednesdayEventForPlayers() {
 	log.Printf("Creating players event")
 	after, _ := time.Parse("2006-01-02", "2023-09-10")
@@ -123,9 +143,16 @@ func (cw *CronWorker) CreateWednesdayEventForPlayers() {
 	}
 	t := time.Now()
 	nextWednesday := t.AddDate(0, 0, 7-int(t.Weekday())+3)
+	time := "21:00"
+	if value, err := cw.db.IsException(nextWednesday.Format("2006-01-02"), time); err != nil {
+		log.Printf("Can't check exception: %v", err)
+	} else if value {
+		log.Printf("Exception for %s %s - NOT SCHEDULING", nextWednesday.Format("2006-01-02"), time)
+		return
+	}
 
 	eventCreator := NewEventCreator(cw.tymujClient)
-	eventURL, err := eventCreator.CreateEvent("Kateřinky", nextWednesday.Format("2.1."), "21:00", "16", "Hokej 4v4 Kateřinky - hráči", "", false, []int{})
+	eventURL, err := eventCreator.CreateEvent("Kateřinky", nextWednesday.Format("2.1."), time, "16", "Hokej 4v4 Kateřinky - hráči", "", false, []int{})
 	if err != nil {
 		log.Printf("Can't create event: %v", err)
 		return
@@ -143,9 +170,16 @@ func (cw *CronWorker) CreateWednesdayEventForGoalies() {
 	}
 	t := time.Now()
 	nextWednesday := t.AddDate(0, 0, 7-int(t.Weekday())+3)
+	time := "21:00"
+	if value, err := cw.db.IsException(nextWednesday.Format("2006-01-02"), time); err != nil {
+		log.Printf("Can't check exception: %v", err)
+	} else if value {
+		log.Printf("Exception for %s %s - NOT SCHEDULING", nextWednesday.Format("2006-01-02"), time)
+		return
+	}
 
 	eventCreator := NewEventCreator(cw.tymujClient)
-	eventURL, err := eventCreator.CreateEvent("Kateřinky", nextWednesday.Format("2.1."), "21:00", "2", "Hokej 4v4 Kateřinky - gólmani", "", false, []int{PLAYERS_GROUP_ID})
+	eventURL, err := eventCreator.CreateEvent("Kateřinky", nextWednesday.Format("2.1."), time, "2", "Hokej 4v4 Kateřinky - gólmani", "", false, []int{PLAYERS_GROUP_ID})
 	if err != nil {
 		log.Printf("Can't create event: %v", err)
 		return

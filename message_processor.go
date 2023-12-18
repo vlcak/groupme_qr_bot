@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
@@ -144,6 +145,20 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 		if err != nil {
 			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing CREATE_GAMES: %v", err), "")
 		}
+	case "SCHEDULE_EXCEPTION":
+		if len(parsedMessage) < 2 || len(parsedMessage) > 3 {
+			log.Printf("Wrong SCHEDULE_EXCEPTION format\n")
+			mp.messageService.SendMessage("Wrong SCHEDULE_EXCEPTION format", "")
+			return nil
+		}
+		time := ""
+		if len(parsedMessage) == 3 {
+			time = strings.TrimSpace(parsedMessage[2])
+		}
+		err := mp.ScheduleException(strings.TrimSpace(parsedMessage[1]), time)
+		if err != nil {
+			mp.messageService.SendMessage(fmt.Sprintf("Error occured when processing SCHEDULE_EXCEPTION: %v", err), "")
+		}
 	case "HELP":
 		mp.messageService.SendMessage("Commands:\n"+
 			"QR <amount> <split> <description> - creates QR code for payment\n"+
@@ -151,6 +166,7 @@ func (mp *MessageProcessor) ProcessMessage(body io.ReadCloser) error {
 			"ADD_ACCOUNT <account> - adds bank account to groupme account\n"+
 			"LINEUP - creates lineup for next game\n"+
 			"CREATE_GAMES <date> - creates games from given spreadsheet\n"+
+			"SCHEDULE_EXCEPTION <date> ?<time> - unschedule game\n"+
 			"HELP - prints this message", "")
 	default:
 		log.Printf("Not a command\n")
@@ -530,5 +546,40 @@ func (mp *MessageProcessor) createGames(sheetURL string) error {
 		log.Printf("Unable to read row: %v\n", err)
 		return err
 	}
+	return nil
+}
+
+func (mp *MessageProcessor) ScheduleException(edate, etime string) error {
+	_, err := time.Parse("2006-01-02", edate)
+	if err != nil {
+		log.Printf("Unable to parse date: %v\n", err)
+		mp.messageService.SendMessage(
+			fmt.Sprintf(
+				"Unable to parse date: %s",
+				edate), "")
+		return err
+	}
+	if etime != "" {
+		_, err := time.Parse("15:04", etime)
+		if err != nil {
+			log.Printf("Unable to parse time: %v\n", err)
+			mp.messageService.SendMessage(
+				fmt.Sprintf(
+					"Unable to parse time: %s",
+					etime), "")
+			return err
+		}
+	}
+
+	err = mp.db.StoreScheduleException(edate, etime)
+	if err != nil {
+		log.Printf("Unable to store schedule exception: %v\n", err)
+		return err
+	}
+	mp.messageService.SendMessage(
+		fmt.Sprintf(
+			"Exception stored: %s %s",
+			edate,
+			etime), "")
 	return nil
 }

@@ -66,6 +66,7 @@ func main() {
 	}
 	c := cron.NewWithLocation(locationPrague)
 	c.AddFunc("0 */10 * * * *", func() { cronWorker.CheckNewPayments() })
+	c.AddFunc("0 0 9 * * *", func() { cronWorker.CheckUnprocessedPayments() })
 	c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateWednesdayEventForPlayers() })
 	c.AddFunc("0 0 12 * * 4", func() { cronWorker.CreateWednesdayEventForGoalies() })
 	c.Start()
