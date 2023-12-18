@@ -146,8 +146,10 @@ func (cw *CronWorker) CreateWednesdayEventForPlayers() {
 	time := "21:00"
 	if value, err := cw.db.IsException(nextWednesday.Format("2006-01-02"), time); err != nil {
 		log.Printf("Can't check exception: %v", err)
+		cw.messageService.SendMessage(fmt.Sprintf("Can't check exception: %v", err), "")
 	} else if value {
 		log.Printf("Exception for %s %s - NOT SCHEDULING", nextWednesday.Format("2006-01-02"), time)
+		cw.messageService.SendMessage(fmt.Sprintf("Exception for %s %s - NOT SCHEDULING", nextWednesday.Format("2006-01-02"), time), "")
 		return
 	}
 
@@ -173,8 +175,10 @@ func (cw *CronWorker) CreateWednesdayEventForGoalies() {
 	time := "21:00"
 	if value, err := cw.db.IsException(nextWednesday.Format("2006-01-02"), time); err != nil {
 		log.Printf("Can't check exception: %v", err)
+		cw.messageService.SendMessage(fmt.Sprintf("Can't check exception: %v", err), "")
 	} else if value {
 		log.Printf("Exception for %s %s - NOT SCHEDULING", nextWednesday.Format("2006-01-02"), time)
+		cw.messageService.SendMessage(fmt.Sprintf("Exception for %s %s - NOT SCHEDULING", nextWednesday.Format("2006-01-02"), time), "")
 		return
 	}
 
