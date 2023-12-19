@@ -137,7 +137,7 @@ func (c *Client) MarkPaymentProcessed(order int) error {
 
 func (c *Client) GetUnprocessedPayments() ([]Payment, error) {
 	var payments []Payment
-	if err := c.db.Select(&payments, `SELECT name, account, amount FROM payments WHERE processed_at IS NULL ORDER BY accounted_order ASC`); err != nil {
+	if err := c.db.Select(&payments, `SELECT name, account, amount FROM payments WHERE accounted_at >= timestamp '2023-09-01 00:00:00' AND processed_at IS NULL ORDER BY accounted_order ASC`); err != nil {
 		log.Printf("DB query error %v\n", err)
 		return payments, err
 	}
