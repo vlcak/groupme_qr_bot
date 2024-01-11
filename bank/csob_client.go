@@ -119,7 +119,7 @@ type bankResponse struct {
 type transaction struct {
 	BaseInfo struct {
 		AccountAmountData struct {
-			Amount       int
+			Amount       float64
 			CurrencyCode string
 		}
 		AccountingOrder int
@@ -241,7 +241,7 @@ func processTransactions(transactions []transaction, lastAccountingOrder int) []
 					transaction.TransactionTypeChoice.DomesticPayment.PartyAccount.DomesticAccount.BankCode,
 				),
 				Message: transaction.TransactionTypeChoice.DomesticPayment.Message.Message1,
-				Amount:  transaction.BaseInfo.AccountAmountData.Amount,
+				Amount:  int(transaction.BaseInfo.AccountAmountData.Amount),
 				Order:   transaction.BaseInfo.AccountingOrder,
 			}
 			accountingDate, err := time.Parse("2006-01-02T15:04:05.000Z", transaction.BaseInfo.AccountingDate)
