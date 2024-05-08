@@ -252,7 +252,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr, perUserAmount strin
 		log.Printf("Can't get sheet remainings %v\n", err)
 		return err
 	}
-	var sufficient, insufficient []string
+	var sufficient, insufficient, insufficientDept []string
 
 	row := []interface{}{message, amount, amountSplitted}
 	var processed []string
@@ -275,6 +275,7 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr, perUserAmount strin
 				sufficient = append(sufficient, originalSheetNames[i])
 			} else {
 				insufficient = append(insufficient, originalSheetNames[i])
+				insufficientDept = append(insufficientDept, strconv.Itoa(amountSplitted-rem))
 			}
 		} else {
 			row = append(row, "")
@@ -305,6 +306,18 @@ func (mp *MessageProcessor) processEvent(senderId, amoutStr, perUserAmount strin
 			"Platba pro: %s",
 			strings.Join(insufficient, ",")),
 		"")
+	messageWithRemainig := "Platba pro: \n"
+	for i, name := range insufficient {
+		if i >= len(insufficientDept) {
+			messageWithRemainig += fmt.Sprintf("%s(%d)\n", name, amountSplitted)
+		} else {
+			messageWithRemainig += fmt.Sprintf("%s(%s)\n", name, insufficientDept[i])
+		}
+	}
+	mp.messageService.SendMessage(
+		messageWithRemainig,
+		"",
+	)
 	return nil
 }
 
