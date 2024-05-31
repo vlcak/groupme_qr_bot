@@ -24,7 +24,7 @@ require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
-	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.2.1 // indirect
@@ -46,6 +46,6 @@ require (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 )
