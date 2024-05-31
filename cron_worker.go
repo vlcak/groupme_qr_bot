@@ -56,61 +56,7 @@ func (cw *CronWorker) CheckNewPayments() {
 		return
 	}
 	for _, payment := range payments {
-		resent, err := regexp.MatchString(`^TO \d{9,10}/\d{4,4}`, payment.Message)
-		if err != nil {
-			log.Printf("Can't check payment message: %s, err: %v", payment.Message, err)
-		}
-		if resent {
-			payment.AccountNumber = payment.Message[3:]
-		}
-
-		userName, err := cw.db.GetName(payment.AccountNumber)
-		if err != nil {
-			log.Printf("Can't get user name for account: %s, err: %v", payment.AccountNumber, err)
-			userName = google.HOSTS
-		}
-
-		for i, name := range userNames {
-			if name == userName {
-				cellAddress := fmt.Sprintf("Sheet1!%s2", google.ToColumnIndex(i))
-				v, err := cw.sheetOperator.Get(cellAddress, google.VRO_FORMULA, false)
-				if err != nil {
-					log.Printf("Can't get amount cell for payment: %v, %v", payment, err)
-				}
-
-				v[0] = fmt.Sprintf("%s+%d", v[0], payment.Amount)
-				newValue := []interface{}{v[0]}
-				err = cw.sheetOperator.Write(cellAddress, newValue)
-				if err != nil {
-					log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
-					cw.messageService.SendMessage(fmt.Sprintf("Can't store new amount cell for payment: %v, %v", payment, err), "")
-					continue
-				}
-				err = cw.db.MarkPaymentProcessed(payment.Order)
-				if err != nil {
-					log.Printf("Can't mark payment as processed: %v, %v", payment, err)
-					cw.messageService.SendMessage(fmt.Sprintf("Can't mark payment as processed: %v, %v", payment, err), "")
-					continue
-				}
-
-				log.Printf("Added %d to %s(%s), account %s, order: %d, resent: %t", payment.Amount, payment.Name, name, payment.AccountNumber, payment.Order, resent)
-				if name == google.HOSTS {
-					log.Printf("Payment not matched and added to hosts %v", payment)
-				}
-
-				cw.messageService.SendMessage(
-					fmt.Sprintf(
-						"New payment from: %s(%s), account: %s, amount: %d, order: %d, resent: %t",
-						payment.Name,
-						name,
-						payment.AccountNumber,
-						payment.Amount,
-						payment.Order,
-						resent),
-					"")
-				break
-			}
-		}
+		cw.processPayment(payment, userNames)
 	}
 }
 
@@ -122,15 +68,23 @@ func (cw *CronWorker) CheckUnprocessedPayments() {
 		return
 	}
 
-	for _, payment := range payments {
-		log.Printf("Unprocessed payment - name: %s, account: %s, amount: %d", payment.Name.String, payment.Account.String, payment.Amount.Int64)
-		cw.messageService.SendMessage(
-			fmt.Sprintf(
-				"Unprocessed payment - name: %s, account: %s, amount: %d",
-				payment.Name.String,
-				payment.Account.String,
-				payment.Amount.Int64),
-			"")
+	if len(payments) > 0 {
+		log.Printf("Unprocessed payments found - reprocessing: %d", len(payments))
+		userNames, err := cw.sheetOperator.Get("Sheet1!A1:1", "", false)
+		if err != nil {
+			log.Printf("Can't get user names: %v", err)
+			return
+		}
+
+		for _, payment := range payments {
+			log.Printf("Reprocessing payment - name: %s, account: %s, amount: %d", payment.Name.String, payment.Account.String, payment.Amount.Int64)
+			cw.processPayment(bank.Payment{
+				Name:          payment.Name.String,
+				AccountNumber: payment.Account.String,
+				Amount:        int(payment.Amount.Int64),
+				Order:         int(payment.Order.Int64),
+			}, userNames)
+		}
 	}
 }
 
@@ -190,4 +144,62 @@ func (cw *CronWorker) CreateWednesdayEventForGoalies() {
 	}
 	log.Printf("Event created: %s", eventURL)
 	cw.messageService.SendMessage(fmt.Sprintf("Event created: %s", eventURL), "")
+}
+
+func (cw *CronWorker) processPayment(payment bank.Payment, userNames []string) {
+	resent, err := regexp.MatchString(`^TO \d{9,10}/\d{4,4}`, payment.Message)
+	if err != nil {
+		log.Printf("Can't check payment message: %s, err: %v", payment.Message, err)
+	}
+	if resent {
+		payment.AccountNumber = payment.Message[3:]
+	}
+
+	userName, err := cw.db.GetName(payment.AccountNumber)
+	if err != nil {
+		log.Printf("Can't get user name for account: %s, err: %v", payment.AccountNumber, err)
+		userName = google.HOSTS
+	}
+
+	for i, name := range userNames {
+		if name == userName {
+			cellAddress := fmt.Sprintf("Sheet1!%s2", google.ToColumnIndex(i))
+			v, err := cw.sheetOperator.Get(cellAddress, google.VRO_FORMULA, false)
+			if err != nil {
+				log.Printf("Can't get amount cell for payment: %v, %v", payment, err)
+			}
+
+			v[0] = fmt.Sprintf("%s+%d", v[0], payment.Amount)
+			newValue := []interface{}{v[0]}
+			err = cw.sheetOperator.Write(cellAddress, newValue)
+			if err != nil {
+				log.Printf("Can't store new amount cell for payment: %v, %v", payment, err)
+				cw.messageService.SendMessage(fmt.Sprintf("Can't store new amount cell for payment: %v, %v", payment, err), "")
+				continue
+			}
+			err = cw.db.MarkPaymentProcessed(payment.Order)
+			if err != nil {
+				log.Printf("Can't mark payment as processed: %v, %v", payment, err)
+				cw.messageService.SendMessage(fmt.Sprintf("Can't mark payment as processed: %v, %v", payment, err), "")
+				continue
+			}
+
+			log.Printf("Added %d to %s(%s), account %s, order: %d, resent: %t", payment.Amount, payment.Name, name, payment.AccountNumber, payment.Order, resent)
+			if name == google.HOSTS {
+				log.Printf("Payment not matched and added to hosts %v", payment)
+			}
+
+			cw.messageService.SendMessage(
+				fmt.Sprintf(
+					"New payment from: %s(%s), account: %s, amount: %d, order: %d, resent: %t",
+					payment.Name,
+					name,
+					payment.AccountNumber,
+					payment.Amount,
+					payment.Order,
+					resent),
+				"")
+			break
+		}
+	}
 }
