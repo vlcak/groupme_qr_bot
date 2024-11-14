@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
@@ -152,7 +153,6 @@ func (cc *CsobClient) paymentsSinceLastCheck(lastAccountingOrder int) ([]Payment
 		chromedp.DisableGPU,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.Flag("headless", true),
-		chromedp.Flag("ignore-certificate-errors", true),
 		chromedp.Flag("window-size", "50,400"),
 		chromedp.UserDataDir(dir),
 	)
@@ -199,10 +199,8 @@ func listenForNetworkEvent(ctx context.Context, lastAccountingOrder int) *[]Paym
 
 		case *network.EventResponseReceived:
 			resp := ev.Response
-			if len(resp.Headers) != 0 {
-				if resp.Headers["Content-Type"] != "application/json" {
-					return
-				}
+			if !strings.Contains(resp.URL, "transactionList") {
+				return
 			}
 			go func() {
 				c := chromedp.FromContext(ctx)
@@ -215,7 +213,7 @@ func listenForNetworkEvent(ctx context.Context, lastAccountingOrder int) *[]Paym
 
 				err = json.Unmarshal(body, &bankResponse)
 				if err != nil {
-					log.Printf("Can't unmarshal bank response body: %v\nbody: %v", err, string(body))
+					log.Printf("Can't unmarshal bank response body err: %v\nbody: %v, url: %s", err, string(body), resp.URL)
 					return
 				}
 
